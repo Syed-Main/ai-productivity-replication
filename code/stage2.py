@@ -85,7 +85,8 @@ def _ols_baseline(d, controls, yd):
     exog = idx[exog_cols]
 
     m = PanelOLS(dep, exog, entity_effects=True, time_effects=True,
-                 check_rank=False).fit(cov_type="clustered", cluster_entity=True)
+                 check_rank=False, drop_absorbed=True).fit(cov_type="clustered", cluster_entity=True)
+
 
     row = {"Specification": "OLS-FE (current)",
            "θ": m.params["ai"], "SE": m.std_errors["ai"],
@@ -104,14 +105,17 @@ def _iv_bartik(d, controls, yd, method="2sls"):
 
     endog_cols = ["ai"]
     instr_cols = ["bartik"]
-    exog_cols  = controls
+    exog_cols  = list(controls)
+    yr_cols    = list(yd.columns)
+
+    d_full = pd.concat([d, yd], axis=1)
 
     # entity demeaning (manual FE removal)
-    dm = _demean_panel(d, "dlnA", endog_cols, exog_cols + list(yd.columns),
+    dm = _demean_panel(d_full, "dlnA", endog_cols, exog_cols + yr_cols,
                        instr_cols)
 
     dep   = dm["dlnA"]
-    exog  = dm[exog_cols + list(yd.columns)] if len(exog_cols) else dm[list(yd.columns)]
+    exog  = dm[exog_cols + yr_cols] if len(exog_cols) else dm[yr_cols]
     endog = dm[endog_cols]
     instr = dm[instr_cols]
 
@@ -146,20 +150,40 @@ def _distributed_lag(d, controls, yd):
     ai_vars = ["ai"] + [f"ai_lag{k}" for k in range(1, MAX_LAGS + 1)
                         if f"ai_lag{k}" in d.columns]
     sub = d.dropna(subset=["dlnA"] + ai_vars + controls).copy()
+    if len(sub) < 30:
+        # If 3 lags is too restrictive on short panel, try with 1 or 2 lags
+        ai_vars = ["ai"] + [f"ai_lag{k}" for k in range(1, 2) if f"ai_lag{k}" in d.columns]
+        sub = d.dropna(subset=["dlnA"] + ai_vars + controls).copy()
+
+    if len(sub) < 20:
+        print("  ↳ distributed lag sample too small — skipping")
+        return None, None
+
     idx = sub.set_index(["eid", "year"])
     dep = idx["dlnA"]
     exog = idx[ai_vars + controls]
 
-    m = PanelOLS(dep, exog, entity_effects=True, time_effects=True,
-                 check_rank=False).fit(cov_type="clustered", cluster_entity=True)
+    try:
+        m = PanelOLS(dep, exog, entity_effects=True, time_effects=True,
+                     check_rank=False, drop_absorbed=True).fit(cov_type="clustered", cluster_entity=True)
+    except Exception as exc:
+        try:
+            m = PanelOLS(dep, exog, entity_effects=True, time_effects=False,
+                         check_rank=False, drop_absorbed=True).fit(cov_type="clustered", cluster_entity=True)
+        except Exception as exc2:
+            print(f"  ↳ distributed lag estimation failed: {exc2}")
+            return None, None
 
     rows = []
     for v in ai_vars:
-        lag_k = 0 if v == "ai" else int(v.replace("ai_lag", ""))
-        rows.append({
-            "Lag": lag_k, "θ_k": m.params[v], "SE": m.std_errors[v],
-            "p-value": m.pvalues[v],
-        })
+        if v in m.params:
+            lag_k = 0 if v == "ai" else int(v.replace("ai_lag", ""))
+            rows.append({
+                "Lag": lag_k, "θ_k": m.params[v], "SE": m.std_errors[v],
+                "p-value": m.pvalues[v],
+            })
+    if not rows:
+        return None, None
     lag_df = pd.DataFrame(rows).set_index("Lag")
     lag_df["cumulative_θ"] = lag_df["θ_k"].cumsum()
 
@@ -188,7 +212,7 @@ def _heterogeneity(d, controls, yd):
             try:
                 m = PanelOLS(idx["dlnA"], idx[["ai"] + controls],
                              entity_effects=True, time_effects=True,
-                             check_rank=False
+                             check_rank=False, drop_absorbed=True
                              ).fit(cov_type="clustered", cluster_entity=True)
                 rows.append({"Group": f"Income: {grp}", "θ": m.params["ai"],
                              "SE": m.std_errors["ai"], "p": m.pvalues["ai"],
@@ -205,7 +229,7 @@ def _heterogeneity(d, controls, yd):
         try:
             m = PanelOLS(idx["dlnA"], idx[["ai"] + controls],
                          entity_effects=True, time_effects=True,
-                         check_rank=False
+                         check_rank=False, drop_absorbed=True
                          ).fit(cov_type="clustered", cluster_entity=True)
             rows.append({"Group": f"Sector: {sec}", "θ": m.params["ai"],
                          "SE": m.std_errors["ai"], "p": m.pvalues["ai"],
@@ -255,8 +279,9 @@ def run(panel):
         try:
             ml = PanelOLS(idx["dlnA"], idx[[lag_var] + controls],
                           entity_effects=True, time_effects=True,
-                          check_rank=False
+                          check_rank=False, drop_absorbed=True
                           ).fit(cov_type="clustered", cluster_entity=True)
+
             spec_rows.append({
                 "Specification": f"OLS-FE (lag {lag_k})",
                 "θ": ml.params[lag_var], "SE": ml.std_errors[lag_var],

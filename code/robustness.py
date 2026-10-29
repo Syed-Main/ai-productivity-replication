@@ -21,7 +21,8 @@ def _fit_panel_ols(idx, dep_col, exog_cols):
     dep  = idx[dep_col]
     exog = idx[exog_cols]
     return PanelOLS(dep, exog, entity_effects=True, time_effects=True,
-                    check_rank=False).fit(cov_type="clustered", cluster_entity=True)
+                    check_rank=False, drop_absorbed=True).fit(cov_type="clustered", cluster_entity=True)
+
 
 
 # ═══════════════════════════════════════════════════════════════════

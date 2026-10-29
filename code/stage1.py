@@ -142,46 +142,50 @@ def _system_gmm(p):
         print("  ↳ pydynpd not installed — skipping System GMM")
         return None
 
-    d = p[["eid", "year", "lnY", "lnK", "lnL"]].dropna().copy()
-    d = d.rename(columns={"eid": "id"})
-
-    # pydynpd command:  dependent   regressors | instruments
-    cmd = (f"lnY lnK lnL | "
-           f"gmm(lnK, 2 {GMM_MAX_LAGS}) gmm(lnL, 2 {GMM_MAX_LAGS}) | "
-           f"timedumm collapse")
-
     try:
+        d = p[["eid", "year", "lnY", "lnK", "lnL"]].dropna().copy()
+        d = d.rename(columns={"eid": "id"})
+
+        # pydynpd requires dynamic specification with L1.lnY and colon lag syntax
+        cmd = (f"lnY L1.lnY lnK lnL | "
+               f"gmm(lnY, 2:{GMM_MAX_LAGS}) gmm(lnK, 2:{GMM_MAX_LAGS}) gmm(lnL, 2:{GMM_MAX_LAGS}) | "
+               f"collapse onestep")
+
         m = regression.abond(cmd, d, ["id", "year"])
-    except Exception as exc:
-        print(f"  ↳ System GMM failed: {exc}")
+        if not hasattr(m, "models") or not m.models:
+            print("  ↳ System GMM returned no models")
+            return None
+
+        model = m.models[0]
+        rt = model.regression_table.set_index("variable")
+        alpha_gmm = float(rt.loc["lnK", "coefficient"]) if "lnK" in rt.index else np.nan
+        beta_gmm  = float(rt.loc["lnL", "coefficient"]) if "lnL" in rt.index else np.nan
+        se_a      = float(rt.loc["lnK", "std_err"]) if "lnK" in rt.index else np.nan
+        se_b      = float(rt.loc["lnL", "std_err"]) if "lnL" in rt.index else np.nan
+
+        summary = pd.DataFrame({
+            "Estimate":   [alpha_gmm, beta_gmm, alpha_gmm + beta_gmm],
+            "Std. error": [se_a, se_b, np.nan],
+        }, index=["α (Sys-GMM)", "β (Sys-GMM)", "α + β"])
+
+        pretty(summary, "Stage 1 · System GMM (Blundell–Bond)")
+
+        try:
+            if hasattr(model, "hansen") and model.hansen is not None:
+                print(f"  Hansen J: stat = {model.hansen.test_value:.3f}, "
+                      f"p = {model.hansen.p_value:.4f}")
+            if hasattr(model, "AR_list") and model.AR_list:
+                for ar in model.AR_list:
+                    print(f"  AR({ar.order}): z = {ar.z_value:.3f}, "
+                          f"p = {ar.P_value:.4f}")
+        except Exception:
+            pass
+
+        return {"alpha": alpha_gmm, "beta": beta_gmm,
+                "summary": summary, "model": model, "method": "Sys-GMM"}
+    except (Exception, SystemExit, BaseException) as exc:
+        print(f"  ↳ System GMM unavailable or failed: {exc}")
         return None
-
-    # extract coefficients
-    coefs = {r["variable"]: r for r in m.regression_table}
-    alpha_gmm = coefs.get("lnK", {}).get("coefficient", np.nan)
-    beta_gmm  = coefs.get("lnL", {}).get("coefficient", np.nan)
-    se_a      = coefs.get("lnK", {}).get("std_err", np.nan)
-    se_b      = coefs.get("lnL", {}).get("std_err", np.nan)
-
-    summary = pd.DataFrame({
-        "Estimate":   [alpha_gmm, beta_gmm, alpha_gmm + beta_gmm],
-        "Std. error": [se_a, se_b, np.nan],
-    }, index=["α (Sys-GMM)", "β (Sys-GMM)", "α + β"])
-
-    pretty(summary, "Stage 1 · System GMM (Blundell–Bond)")
-
-    # diagnostics
-    try:
-        print(f"  Hansen J: stat = {m.hansen.test_value:.3f}, "
-              f"p = {m.hansen.p_value:.4f}")
-        for ar in m.ar_tests:
-            print(f"  AR({ar.order}): z = {ar.z_value:.3f}, "
-                  f"p = {ar.p_value:.4f}")
-    except Exception:
-        pass
-
-    return {"alpha": alpha_gmm, "beta": beta_gmm,
-            "summary": summary, "model": m, "method": "Sys-GMM"}
 
 
 # ═══════════════════════════════════════════════════════════════════

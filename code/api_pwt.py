@@ -31,9 +31,22 @@ def load_pwt():
         ctfp     – TFP level at current PPPs (USA = 1)
         rgdpna   – real GDP at constant 2017 national prices (millions)
     """
-    path = cached_download(PWT_URL, "pwt1001.dta")
-    print("  ↳ reading PWT 10.01 ...")
-    df = pd.read_stata(path, convert_categoricals=False)
+    xlsx_path = os.path.join(CACHE, "pwt1001.xlsx")
+    dta_path = os.path.join(CACHE, "pwt1001.dta")
+
+    if os.path.exists(xlsx_path):
+        path = xlsx_path
+    elif os.path.exists(dta_path):
+        path = dta_path
+    else:
+        ext = "xlsx" if PWT_URL.endswith(".xlsx") else "dta"
+        path = cached_download(PWT_URL, f"pwt1001.{ext}")
+
+    print(f"  ↳ reading PWT 10.01 ({os.path.basename(path)}) ...")
+    if path.endswith(".xlsx"):
+        df = pd.read_excel(path, sheet_name="Data")
+    else:
+        df = pd.read_stata(path, convert_categoricals=False)
 
     keep = ["countrycode", "year", "rnna", "hc", "ctfp", "rgdpna"]
     df = df[[c for c in keep if c in df.columns]].copy()
@@ -44,3 +57,4 @@ def load_pwt():
     print(f"  ↳ PWT panel: {df.country.nunique()} countries, "
           f"{int(df.year.min())}–{int(df.year.max())}")
     return df
+

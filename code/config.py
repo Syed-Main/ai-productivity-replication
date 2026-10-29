@@ -13,7 +13,7 @@ WB       = "https://api.worldbank.org/v2"
 OECD     = "https://sdmx.oecd.org/public/rest"
 OECD_DATAFLOW    = "OECD.STI.DEP,DSD_ICT_B@DF_BUSINESSES"
 OECD_MEASURE_RE  = r"artificial intelligence"
-PWT_URL  = "https://dataverse.nl/api/access/datafile/354098"   # PWT 10.01 .dta
+PWT_URL  = "https://raw.githubusercontent.com/ClaremontCollegesLibrary/stata-merge-tutorial/main/pwt1001.xlsx"   # PWT 10.01 .xlsx mirror
 
 # ── Time windows ────────────────────────────────────────────────────
 START, END     = 1990, 2024    # download window (early years feed K)

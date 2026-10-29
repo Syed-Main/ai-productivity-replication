@@ -1,0 +1,17 @@
+\begin{table}[t]
+\centering\small
+\begin{tabular}{lrrrrrrrr}
+\toprule
+ & θ & SE & p-value & N & Countries & R² & 1st-F & Method \\
+\midrule
+OLS-FE (current) & 0.015 & 0.135 & 0.913 & 297 & 35 & 0.037 &  & OLS \\
+OLS-FE (lag 1) & -0.004 & 0.031 & 0.905 & 96 & 29 & -0.134 &  & OLS \\
+OLS-FE (lag 2) & 1.829 & 3.137 & 0.573 & 105 & 30 & -2.795 &  & OLS \\
+OLS-FE (lag 3) & -0.008 &  &  & 84 & 27 & -0.098 &  & OLS \\
+IV-2SLS Bartik (current) & -0.034 & 0.489 & 0.944 & 297 & 35 &  &  & IV-2SLS \\
+LIML Bartik (current) & -0.034 & 0.489 & 0.944 & 297 & 35 &  &  & LIML \\
+\bottomrule
+\end{tabular}
+\caption{Stage 2: AI adoption and TFP growth.}
+\label{tab:ai}
+\end{table}

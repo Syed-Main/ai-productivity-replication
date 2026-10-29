@@ -38,12 +38,27 @@ def cached_download(url, cache_name):
 class Tee:
     """Send everything printed to screen *and* to a text file."""
     def __init__(self, path):
-        self.f   = open(path, "w", encoding="utf-8")
+        self.f   = open(path, "w", encoding="utf-8", errors="replace")
         self.out = sys.stdout
     def write(self, s):
-        self.out.write(s);  self.f.write(s)
+        try:
+            self.out.write(s)
+        except UnicodeEncodeError:
+            enc = getattr(self.out, "encoding", None) or "ascii"
+            self.out.write(s.encode(enc, errors="replace").decode(enc))
+        try:
+            self.f.write(s)
+        except Exception:
+            self.f.write(s.encode("utf-8", errors="replace").decode("utf-8"))
     def flush(self):
-        self.out.flush();   self.f.flush()
+        try:
+            self.out.flush()
+        except Exception:
+            pass
+        try:
+            self.f.flush()
+        except Exception:
+            pass
 
 
 # ── Panel utilities ─────────────────────────────────────────────────
@@ -75,6 +90,7 @@ def winsorise(s, lo=0.01, hi=0.99):
 def pretty(df, title="", fmt="{:.4f}"):
     """Print a compact summary table to the console log."""
     if title:
-        print(f"\n{'─'*60}\n{title}\n{'─'*60}")
+        print(f"\n{'-'*60}\n{title}\n{'-'*60}")
     with pd.option_context("display.float_format", fmt.format):
         print(df)
+
