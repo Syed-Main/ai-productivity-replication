@@ -1,0 +1,7 @@
+============================================================
+  SYNTHETIC DATA — results validate the code only
+============================================================
+Panel finalised: 4,320 rows, 60 countries, 3 sectors, years 2000–2023
+
+Panel: 4,320 rows, 60 countries, 3 sectors
+
