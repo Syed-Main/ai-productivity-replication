@@ -11,7 +11,7 @@ This repository contains the complete empirical codebase, econometric estimation
 
 ---
 
-## 📌 Executive Summary of Findings
+## Executive Summary of Findings
 
 1. **First-Stage Growth Accounting**:
    - Implements nonparametric **Solow–Jorgenson Törnqvist** growth accounting anchored in empirical time-varying labor shares ($labsh_{ct}$) from Penn World Table 10.01 ($\bar{\alpha} = 0.489, \bar{\beta} = 0.511, \alpha+\beta = 1.000$).
@@ -37,7 +37,7 @@ This repository contains the complete empirical codebase, econometric estimation
 
 ---
 
-## 🗂 Repository Structure
+## Repository Structure
 
 ```
 .
@@ -73,7 +73,7 @@ This repository contains the complete empirical codebase, econometric estimation
 
 ---
 
-## 🚀 Replication Protocol
+## Replication Protocol
 
 ### 1. Environment Setup
 
@@ -116,7 +116,7 @@ The script will automatically:
 
 ---
 
-## 📊 Empirical Data Sources
+## Empirical Data Sources
 
 | Indicator | Repository | Code / Series | Description |
 | :--- | :--- | :--- | :--- |
@@ -132,7 +132,7 @@ The script will automatically:
 
 ---
 
-## 📜 Citation
+## Citation
 
 If you use this codebase or replication package in your research, please cite:
 
@@ -148,6 +148,6 @@ If you use this codebase or replication package in your research, please cite:
 
 ---
 
-## 📄 License
+## License
 
 This replication repository and codebase are distributed under the [MIT License](LICENSE).
