@@ -1,119 +1,152 @@
-Block 3: downloading World Bank series …
-Block 3: building capital stocks (PWT + WB GFCF extension) …
+============================================================
+  CONSTRUCTING AGGREGATE AND SECTORAL PANELS
+============================================================
+Block 3: building aggregate country-year panel (PWT + WB GFCF extension) …
   ↳ reading PWT 10.01 (pwt1001.xlsx) ...
   ↳ PWT panel: 180 countries, 1950–2019
-Block 3: downloading OECD AI adoption …
+  ↳ GE.EST failed: not enough values to unpack (expected 2, got 1)
+  -> control 'gov_eff' unavailable — skipped
+Block 3: merging OECD AI adoption …
+  ↳ OECD AI measure used: G14_B
+  ↳ OECD AI panel: 40 countries, years 2017–2025, 174 obs
+Aggregate panel finalised: 4,236 rows, 180 countries, years 2000–2024
+Block 3: building sectoral panel (World Bank + PWT capital allocation) …
+  ↳ reading PWT 10.01 (pwt1001.xlsx) ...
+  ↳ PWT panel: 180 countries, 1950–2019
   ↳ OECD AI measure used: G14_B
   ↳ OECD AI panel: 40 countries, years 2017–2025, 174 obs
   ↳ GE.EST failed: not enough values to unpack (expected 2, got 1)
-  ↳ control 'gov_eff' unavailable — skipped
-Panel finalised: 11,606 rows, 166 countries, 3 sectors, years 2000–2024
+  -> control 'gov_eff' unavailable — skipped
+Sectoral panel finalised: 11,606 rows, 166 countries, 3 sectors, years 2000–2024
 
-Panel: 11,606 rows, 166 countries, 3 sectors
+Aggregate Panel: 4,236 rows, 180 countries
+Sectoral Panel:  11,606 rows, 166 countries, 3 sectors
 
+============================================================
+  STAGE 1: PRODUCTION FUNCTION & GROWTH ACCOUNTING
+============================================================
+
+------------------------------------------------------------
+Stage 1 · Solow–Jorgenson Törnqvist Factor Shares
+------------------------------------------------------------
+                              Estimate  Std. error
+α (Törnqvist Cost-Share)        0.4892      0.0020
+β (Törnqvist Cost-Share)        0.5108      0.0020
+α + β (Törnqvist Cost-Share)    1.0000         NaN
+
+------------------------------------------------------------
+Stage 1 · One-Step Joint Estimation (Inputs + AI)
+------------------------------------------------------------
+                        Estimate  Std. error
+α (One-Step Joint)        0.0743      0.1473
+β (One-Step Joint)        0.4406      0.0839
+α + β (One-Step Joint)    0.5149         NaN
+θ_AI (One-Step Joint)     0.0000      0.0002
+  N = 102, R² (within) = 0.9847
 
 ------------------------------------------------------------
 Stage 1 · OLS Fixed Effects
 ------------------------------------------------------------
-                         Estimate  Std. error
-α (unrestricted)           0.5989      0.0285
-β (unrestricted)           0.1807      0.0324
-α + β                      0.7797         NaN
-α (CRS imposed)            0.6690      0.0267
-β = 1 − α (CRS imposed)    0.3310      0.0267
-  CRS Wald test: stat = 49.051, p-value = 0.0000
-  N = 11606, entities = 497, R² (within) = 0.0106
+                             Estimate  Std. error
+α (OLS unrestricted)           0.4871      0.0416
+β (OLS unrestricted)           0.2349      0.0875
+α + β (OLS unrestricted)       0.7220         NaN
+α (OLS CRS imposed)            0.5085      0.0424
+β = 1 − α (OLS CRS imposed)    0.4915      0.0424
+  CRS Wald test: stat = 10.571, p-value = 0.0011
+  N = 4236, R² (within) = 0.7428
 
 ------------------------------------------------------------
-Stage 1 · IV in First Differences
+Stage 1 · IV in First Differences (Anderson–Hsiao)
 ------------------------------------------------------------
-           Estimate  Std. error
-α (IV-FD)    0.3055      0.2564
-β (IV-FD)    1.5990      0.7527
-α + β        1.9045         NaN
-  N = 10615, Sargan p = nan
+               Estimate  Std. error
+α (IV-FD)        1.4112      0.2970
+β (IV-FD)        0.1210      0.6449
+α + β (IV-FD)    1.5322         NaN
  Dynamic panel-data estimation, one-step system GMM
- Group variable: id                               Number of obs = 10615    
+ Group variable: id                               Number of obs = 3876     
  Time variable: year                              Min obs per group: 0     
  Number of instruments = 13                       Max obs per group: 23    
- Number of groups = 497                           Avg obs per group: 21.36 
-+--------+-----------+---------------------+------------+-----------+-----+
-|  lnY   |   coef.   | Corrected Std. Err. |     z      |   P>|z|   |     |
-+--------+-----------+---------------------+------------+-----------+-----+
-| L1.lnY | 0.8725140 |      0.0546487      | 15.9658740 | 0.0000000 | *** |
-|  lnK   | 0.0258667 |      0.0137336      | 1.8834620  | 0.0596378 |     |
-|  lnL   | 0.0777371 |      0.0218752      | 3.5536601  | 0.0003799 | *** |
-|  _con  | 1.6017734 |      0.8951497      | 1.7893916  | 0.0735518 |     |
-+--------+-----------+---------------------+------------+-----------+-----+
-Hansen test of overid. restrictions: chi(9) = 23.375 Prob > Chi2 = 0.005
-Arellano-Bond test for AR(1) in first differences: z = -10.67 Pr > z =0.000
-Arellano-Bond test for AR(2) in first differences: z = -0.26 Pr > z =0.793
+ Number of groups = 180                           Avg obs per group: 21.53 
++--------+-----------+---------------------+-----------+-----------+-----+
+|  lnY   |   coef.   | Corrected Std. Err. |     z     |   P>|z|   |     |
++--------+-----------+---------------------+-----------+-----------+-----+
+| L1.lnY | 0.8887750 |      0.1152556      | 7.7113376 | 0.0000000 | *** |
+|  lnK   | 0.0254366 |      0.0671422      | 0.3788471 | 0.7048014 |     |
+|  lnL   | 0.1197775 |      0.0804522      | 1.4888023 | 0.1365394 |     |
+|  _con  | 0.8375681 |      0.4796929      | 1.7460507 | 0.0808021 |     |
++--------+-----------+---------------------+-----------+-----------+-----+
+Hansen test of overid. restrictions: chi(9) = 17.456 Prob > Chi2 = 0.042
+Arellano-Bond test for AR(1) in first differences: z = -2.88 Pr > z =0.004
+Arellano-Bond test for AR(2) in first differences: z = 0.09 Pr > z =0.926
 
 
 ------------------------------------------------------------
 Stage 1 · System GMM (Blundell–Bond)
 ------------------------------------------------------------
-             Estimate  Std. error
-α (Sys-GMM)    0.0259      0.0137
-β (Sys-GMM)    0.0777      0.0219
-α + β          0.1036         NaN
-  Hansen J: stat = 23.375, p = 0.0054
-
-  ★ Preferred Stage-1 method: IV-FD  (α = 0.3055, β = 1.5990)
+                 Estimate  Std. error
+α (Sys-GMM)        0.0254      0.0671
+β (Sys-GMM)        0.1198      0.0805
+α + β (Sys-GMM)    0.1452         NaN
 
 ------------------------------------------------------------
-Stage 1 · Combined Estimates
+Stage 1 · Combined Production-Function Estimates
 ------------------------------------------------------------
-                         Estimate  Std. error
-α (unrestricted)           0.5989      0.0285
-β (unrestricted)           0.1807      0.0324
-α + β                      0.7797         NaN
-α (CRS imposed)            0.6690      0.0267
-β = 1 − α (CRS imposed)    0.3310      0.0267
-α (IV-FD)                  0.3055      0.2564
-β (IV-FD)                  1.5990      0.7527
-α + β                      1.9045         NaN
-α (Sys-GMM)                0.0259      0.0137
-β (Sys-GMM)                0.0777      0.0219
-α + β                      0.1036         NaN
-  Stage-2 controls used: ['ln_gdp_pc', 'tertiary', 'rd', 'trade', 'internet']
-  Stage-2 estimation sample: 297 obs, 35 countries
+                              Estimate  Std. error
+α (Törnqvist Cost-Share)        0.4892      0.0020
+β (Törnqvist Cost-Share)        0.5108      0.0020
+α + β (Törnqvist Cost-Share)    1.0000         NaN
+α (One-Step Joint)              0.0743      0.1473
+β (One-Step Joint)              0.4406      0.0839
+α + β (One-Step Joint)          0.5149         NaN
+θ_AI (One-Step Joint)           0.0000      0.0002
+α (OLS unrestricted)            0.4871      0.0416
+β (OLS unrestricted)            0.2349      0.0875
+α + β (OLS unrestricted)        0.7220         NaN
+α (OLS CRS imposed)             0.5085      0.0424
+β = 1 − α (OLS CRS imposed)     0.4915      0.0424
+α (IV-FD)                       1.4112      0.2970
+β (IV-FD)                       0.1210      0.6449
+α + β (IV-FD)                   1.5322         NaN
+α (Sys-GMM)                     0.0254      0.0671
+β (Sys-GMM)                     0.1198      0.0805
+α + β (Sys-GMM)                 0.1452         NaN
+
+============================================================
+  STAGE 2: AI ADOPTION -> TFP GROWTH
+============================================================
+  Stage-2 controls used: ['ln_gdp_pc', 'tertiary', 'rd', 'trade']
+  Stage-2 aggregate sample: 102 obs, 36 countries
 
 ------------------------------------------------------------
-Stage 2 · AI → TFP Growth (all specifications)
+Stage 2 · AI → TFP Growth (Aggregate & Sectoral Specifications)
 ------------------------------------------------------------
-                               θ     SE  p-value  ...      R²  1st-F   Method
-Specification                                     ...                        
-OLS-FE (current)          0.0148 0.1354   0.9128  ...  0.0369    NaN      OLS
-OLS-FE (lag 1)           -0.0042 0.0311   0.9053  ... -0.1343    NaN      OLS
-OLS-FE (lag 2)            1.8290 3.1365   0.5727  ... -2.7948    NaN      OLS
-OLS-FE (lag 3)           -0.0075    NaN      NaN  ... -0.0977    NaN      OLS
-IV-2SLS Bartik (current) -0.0345 0.4889   0.9438  ...     NaN    NaN  IV-2SLS
-LIML Bartik (current)    -0.0345 0.4889   0.9438  ...     NaN    NaN     LIML
+                                          θ     SE  ...   AR-p          Method
+Specification                                       ...                       
+OLS-FE (contemporaneous)             0.0048 0.0516  ...    NaN             OLS
+OLS-FE (lag 1)                       0.0540 0.0954  ...    NaN             OLS
+OLS-FE (lag 2)                       0.0965 0.0945  ...    NaN             OLS
+IV-2SLS (Overidentified)             0.1531 0.1878  ... 0.1358            2SLS
+IV-LIML (Overidentified)             0.2989 0.4262  ... 0.1358            LIML
+Sectoral Rajan–Zingales (CY + SY FE) 0.0255 0.0368  ...    NaN  Rajan–Zingales
 
-[6 rows x 8 columns]
+[6 rows x 10 columns]
 
 ------------------------------------------------------------
 Stage 2 · Distributed-Lag (J-Curve Test)
 ------------------------------------------------------------
-        θ_k     SE  p-value  cumulative_θ
-Lag                                      
-0   -0.0064 0.0104   0.6491       -0.0064
-1   -0.0041 0.0094   0.7343       -0.0105
-  N = 96, Σθ = -0.0105
+       θ_k     SE  p-value  cumulative_θ
+Lag                                     
+0   0.0032 0.0000      NaN        0.0032
+1   0.0021 0.0000      NaN        0.0052
+  N = 33, cumulative θ = 0.0052
 
 ------------------------------------------------------------
 Stage 2 · Heterogeneity
 ------------------------------------------------------------
-                            θ     SE      p    N
-Group                                           
-Income: High           0.0155 0.1416 0.9128  261
-Income: Upper-middle -14.1051 5.9911 0.0364   36
-Sector: Agriculture    0.0379 0.3638 0.9173   99
-Sector: Industry       0.0333 0.1285 0.7966   99
-Sector: Services      -0.0267 0.1125 0.8133   99
-
-  Mean estimated AI contribution to TFP growth: -0.1092 pp/yr (θ = -0.0345)
+                   θ     SE      p   N
+Group                                 
+Income: High -0.0096 0.0545 0.8609  90
 
 ============================================================
   ROBUSTNESS BATTERY
@@ -123,26 +156,8 @@ Sector: Services      -0.0267 0.1125 0.8133   99
 Robustness · Translog Production Function
 ------------------------------------------------------------
            Estimate  Std. error  p-value
-lnK          0.5237      0.0546   0.0000
-lnL          0.0058      0.1955   0.9761
-(lnK)²      -0.0026      0.0022   0.2300
-(lnL)²       0.0030      0.0080   0.7121
-lnK × lnL    0.0093      0.0050   0.0628
-  Point elasticities at sample means: α(K) = 0.5902, β(L) = 0.1926
-  α + β = 0.7827
-  OECD subsample: θ = 0.1208 (0.1244), N = 324
-  Placebo: θ_fake = 0.1248 (p = 0.4460)
-  Jackknife (37 drops): θ = 0.0650 ± 0.1320  [-0.0112, 0.1156]
-
-Mean annual growth decomposition (percentage points):
-             Output growth  Capital  Labour   TFP
-sector                                           
-Agriculture           1.98     2.48   -0.42 -0.08
-Industry              3.07     2.83    3.14 -2.90
-Services              3.96     3.13    4.21 -3.39
-
-All tables and figures saved to results/
-
-============================================================
-  PIPELINE COMPLETE
-============================================================
+lnK          1.0587      0.2513   0.0000
+lnL         -0.3629      0.3226   0.2608
+(lnK)²      -0.0286      0.0126   0.0232
+(lnL)²       0.0167      0.0262   0.5255
+lnK × lnL    0.0514      0.0292   0.0780

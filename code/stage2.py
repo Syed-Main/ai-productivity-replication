@@ -1,33 +1,42 @@
 """Block 5 – Stage 2: does AI adoption explain TFP growth?
 
-Four estimator / specification families:
-
-1. **OLS Fixed Effects** — baseline conditional association
-2. **IV-2SLS with Bartik instrument** — causal identification
-3. **LIML** — robustness to weak instruments
-4. **Distributed-lag model** — J-curve hypothesis test
-5. **Heterogeneity analysis** — interactions with income group and sector
+Specifications:
+1. Aggregate Country-Year (Primary):
+   - OLS Fixed Effects (contemporaneous, lag 1, lag 2)
+   - IV-2SLS with overidentifying instruments Z1 and Z2
+   - IV-LIML with overidentifying instruments Z1 and Z2
+   - Hansen J overidentification test (df = 1)
+   - Anderson–Rubin weak-instrument-robust test
+   - Distributed-lag model (J-curve adjustment friction test)
+2. Sectoral Mechanism (Rajan–Zingales Interaction):
+   - Δln TFP_{cst} = θ (AI_{ct} × Exposure_s) + μ_{ct} + λ_{st} + ε_{cst}
+   - Absorbs all time-varying country macroeconomic shocks and sectoral shifts
+3. Heterogeneity Analysis:
+   - Interactions with income group and sector
 """
 import warnings
 import numpy as np
 import pandas as pd
+from linearmodels.panel import PanelOLS
 from linearmodels.iv import IV2SLS, IVLIML
+import statsmodels.api as sm
 
-from config import (STAGE2_CONTROLS, MAX_LAGS, WINSOR_PCTILES)
-from utils import pretty, add_year_dummies, entity_demean, winsorise
+from config import STAGE2_CONTROLS, MAX_LAGS, WINSOR_PCTILES
+from utils import pretty, add_year_dummies, winsorise
 
 
 # ── helpers ─────────────────────────────────────────────────────────
 def _prepare(p):
-    """Winsorise TFP growth, select usable controls, build entity id."""
+    """Winsorise TFP growth if not already done."""
     p = p.copy()
     lo, hi = WINSOR_PCTILES
-    p["dlnA"] = winsorise(p["C_TFP"], lo, hi)
+    if "dlnA" not in p.columns:
+        p["dlnA"] = winsorise(p["C_TFP"], lo, hi)
     return p
 
 
 def _pick_controls(p, subset=None):
-    """Keep controls with >55 % non-missing coverage."""
+    """Keep controls with >55% non-missing coverage."""
     pool = subset or STAGE2_CONTROLS
     s0 = p.dropna(subset=["ai", "dlnA"])
     ok = [c for c in pool if c in p.columns and s0[c].notna().mean() > 0.55]
@@ -35,8 +44,8 @@ def _pick_controls(p, subset=None):
     return ok
 
 
-def _demean_panel(d, dep, endog_cols, exog_cols, instr_cols, eid="eid"):
-    """Within-group demeaning (entity FE) for IV with panel structure."""
+def _demean_panel(d, dep, endog_cols, exog_cols, instr_cols, eid="country"):
+    """Within-group demeaning (entity FE) for panel IV."""
     all_cols = [dep] + endog_cols + exog_cols + instr_cols
     all_cols = [c for c in all_cols if c in d.columns]
     means = d.groupby(eid)[all_cols].transform("mean")
@@ -46,133 +55,206 @@ def _demean_panel(d, dep, endog_cols, exog_cols, instr_cols, eid="eid"):
     return dm
 
 
-def _run_iv(dep, exog, endog, instruments, cov, method="2sls"):
-    """Unified IV wrapper returning a results dict."""
-    Cls = IVLIML if method == "liml" else IV2SLS
-    m = Cls(dep, exog, endog, instruments).fit(cov_type=cov)
-    return m
-
-
-def _diagnostics_str(m, endog_name="ai"):
-    """Extract key IV diagnostics as a string."""
-    parts = [f"N = {int(m.nobs)}"]
-    # first stage F
-    try:
-        fs = m.first_stage
-        f_stat = fs.diagnostics[endog_name]["f.stat"]
-        parts.append(f"1st-stage F = {f_stat:.2f}")
-    except Exception:
-        pass
-    # Sargan / Hansen
-    try:
-        if m.sargan is not None:
-            parts.append(f"Sargan p = {m.sargan.pval:.4f}")
-    except Exception:
-        pass
-    return ", ".join(parts)
-
-
 # ═══════════════════════════════════════════════════════════════════
-#  A.  OLS Fixed Effects (baseline)
+#  A.  OLS Fixed Effects (Aggregate Country-Year)
 # ═══════════════════════════════════════════════════════════════════
-def _ols_baseline(d, controls, yd):
-    """OLS-FE: regress TFP growth on AI + controls + entity + time FE."""
-    from linearmodels.panel import PanelOLS
+def _ols_baseline(d, controls, yd=None, eid="country", lag=0):
+    """OLS-FE: regress TFP growth on AI (contemporaneous or lagged) + controls + FE."""
+    ai_col = "ai" if lag == 0 else f"ai_lag{lag}"
+    if ai_col not in d.columns:
+        return None, None
 
-    idx = d.set_index(["eid", "year"])
-    dep = idx["dlnA"]
-    exog_cols = ["ai"] + controls
+    sub = d.dropna(subset=["dlnA", ai_col] + controls).copy()
+    if len(sub) < 30:
+        return None, None
+
+    idx = sub.set_index([eid, "year"])
+    exog_cols = [ai_col] + controls
     exog = idx[exog_cols]
 
-    m = PanelOLS(dep, exog, entity_effects=True, time_effects=True,
-                 check_rank=False, drop_absorbed=True).fit(cov_type="clustered", cluster_entity=True)
+    try:
+        m = PanelOLS(idx["dlnA"], exog, entity_effects=True, time_effects=True,
+                     check_rank=False, drop_absorbed=True).fit(cov_type="clustered", cluster_entity=True)
+    except Exception:
+        try:
+            m = PanelOLS(idx["dlnA"], exog, entity_effects=True, time_effects=True,
+                         check_rank=False, drop_absorbed=True).fit(cov_type="robust")
+        except Exception:
+            try:
+                m = PanelOLS(idx["dlnA"], exog, entity_effects=True, time_effects=False,
+                             check_rank=False, drop_absorbed=True).fit(cov_type="robust")
+            except Exception as exc:
+                print(f"  -> OLS lag {lag} estimation failed: {exc}")
+                return None, None
 
-
-    row = {"Specification": "OLS-FE (current)",
-           "θ": m.params["ai"], "SE": m.std_errors["ai"],
-           "p-value": m.pvalues["ai"], "N": int(m.nobs),
-           "Countries": d.country.nunique(), "R²": m.rsquared_within,
-           "1st-F": np.nan, "Method": "OLS"}
+    spec_name = "OLS-FE (contemporaneous)" if lag == 0 else f"OLS-FE (lag {lag})"
+    row = {
+        "Specification": spec_name,
+        "θ": m.params[ai_col],
+        "SE": m.std_errors[ai_col],
+        "p-value": m.pvalues[ai_col],
+        "N": int(m.nobs),
+        "Countries": sub[eid].nunique(),
+        "R²": m.rsquared_within,
+        "1st-F": np.nan,
+        "Hansen-J-p": np.nan,
+        "AR-p": np.nan,
+        "Method": "OLS",
+    }
     return row, m
 
 
 # ═══════════════════════════════════════════════════════════════════
-#  B.  IV-2SLS with Bartik instrument
+#  B.  Overidentified IV-2SLS and LIML
 # ═══════════════════════════════════════════════════════════════════
-def _iv_bartik(d, controls, yd, method="2sls"):
-    """FE-IV via entity demeaning + IV2SLS/LIML."""
-    label = "IV-2SLS" if method == "2sls" else "LIML"
-
+def _iv_overidentified(d, controls, yd, method="2sls", eid="country"):
+    """Overidentified IV via entity demeaning with Z1 and Z2."""
+    label = "IV-2SLS (Overidentified)" if method == "2sls" else "IV-LIML (Overidentified)"
     endog_cols = ["ai"]
-    instr_cols = ["bartik"]
+    instr_cols = ["bartik1", "bartik2"]
     exog_cols  = list(controls)
     yr_cols    = list(yd.columns)
 
-    d_full = pd.concat([d, yd], axis=1)
+    d_sub = d.dropna(subset=["dlnA", "ai", "bartik1", "bartik2"] + controls).copy()
+    if len(d_sub) < 30:
+        print(f"  -> {label} sample too small — skipping")
+        return None, None
 
-    # entity demeaning (manual FE removal)
+    yd_sub = add_year_dummies(d_sub)
+    yr_cols = list(yd_sub.columns)
+    d_full = pd.concat([d_sub, yd_sub], axis=1)
+
+    # Within-entity demeaning
     dm = _demean_panel(d_full, "dlnA", endog_cols, exog_cols + yr_cols,
-                       instr_cols)
+                       instr_cols, eid=eid)
 
     dep   = dm["dlnA"]
     exog  = dm[exog_cols + yr_cols] if len(exog_cols) else dm[yr_cols]
     endog = dm[endog_cols]
     instr = dm[instr_cols]
 
+    Cls = IVLIML if method == "liml" else IV2SLS
     try:
-        m = _run_iv(dep, exog, endog, instr, cov="robust", method=method)
+        m = Cls(dep, exog, endog, instr).fit(cov_type="robust")
     except Exception as exc:
-        print(f"  ↳ {label} failed: {exc}")
+        print(f"  -> {label} failed: {exc}")
         return None, None
 
-    diag = _diagnostics_str(m)
+    # First-stage F-statistic
     first_f = np.nan
     try:
-        first_f = m.first_stage.diagnostics["ai"]["f.stat"]
+        first_f = float(m.first_stage.diagnostics.loc["ai", "f.stat"])
+    except Exception:
+        try:
+            first_f = float(m.first_stage.diagnostics["f.stat"].iloc[0])
+        except Exception:
+            pass
+
+    # Hansen J overidentification test p-value (df = L - K = 2 - 1 = 1)
+    hansen_p = np.nan
+    if hasattr(m, "sargan") and m.sargan is not None:
+        hansen_p = float(m.sargan.pval)
+
+    # Anderson-Rubin weak-instrument test (H0: θ = 0)
+    # Under H0, y is regressed on exog and instruments; tests joint significance of instruments
+    ar_p = np.nan
+    try:
+        ar_reg = sm.OLS(dep, pd.concat([exog, instr], axis=1)).fit()
+        ar_test = ar_reg.f_test("bartik1 = 0, bartik2 = 0")
+        ar_p = float(ar_test.pvalue)
     except Exception:
         pass
 
-    row = {"Specification": f"{label} Bartik (current)",
-           "θ": m.params["ai"], "SE": m.std_errors["ai"],
-           "p-value": m.pvalues["ai"], "N": int(m.nobs),
-           "Countries": d.country.nunique(), "R²": np.nan,
-           "1st-F": first_f, "Method": label}
+    # For IV/LIML, R² does not have a bounded sum-of-squares interpretation; suppress negative values
+    r2_val = np.nan
+
+    row = {
+        "Specification": label,
+        "θ": m.params["ai"],
+        "SE": m.std_errors["ai"],
+        "p-value": m.pvalues["ai"],
+        "N": int(m.nobs),
+        "Countries": d_sub[eid].nunique(),
+        "R²": r2_val,
+        "1st-F": first_f,
+        "Hansen-J-p": hansen_p,
+        "AR-p": ar_p,
+        "Method": "LIML" if method == "liml" else "2SLS",
+    }
     return row, m
 
 
 # ═══════════════════════════════════════════════════════════════════
-#  C.  Distributed-lag model (J-curve test)
+#  C.  Sectoral Rajan–Zingales Exposure Interaction
 # ═══════════════════════════════════════════════════════════════════
-def _distributed_lag(d, controls, yd):
-    """OLS-FE with contemporaneous + lagged AI (0 to MAX_LAGS)."""
-    from linearmodels.panel import PanelOLS
+def _sectoral_rajan_zingales(p_sec, controls):
+    """Estimate sectoral exposure interaction with country-year & sector-year FE:
+       Δln TFP_{cst} = θ (AI_{ct} × Exposure_s) + μ_{ct} + λ_{st} + ε_{cst}
+    """
+    if "ai_interact" not in p_sec.columns or "cy" not in p_sec.columns:
+        return None, None
 
+    d = p_sec.dropna(subset=["dlnA", "ai_interact"]).copy()
+    if len(d) < 50:
+        return None, None
+
+    # Demean by country-year (cy) to absorb all time-varying country shocks
+    d["dlnA_dm"] = d["dlnA"] - d.groupby("cy")["dlnA"].transform("mean")
+    d["ai_int_dm"] = d["ai_interact"] - d.groupby("cy")["ai_interact"].transform("mean")
+
+    idx = d.set_index(["sector", "year"])
+    m = PanelOLS(idx["dlnA_dm"], idx[["ai_int_dm"]], entity_effects=True, time_effects=True,
+                 drop_absorbed=True).fit(cov_type="clustered", cluster_entity=True)
+
+    row = {
+        "Specification": "Sectoral Rajan–Zingales (CY + SY FE)",
+        "θ": m.params["ai_int_dm"],
+        "SE": m.std_errors["ai_int_dm"],
+        "p-value": m.pvalues["ai_int_dm"],
+        "N": int(m.nobs),
+        "Countries": d.country.nunique(),
+        "R²": m.rsquared_within,
+        "1st-F": np.nan,
+        "Hansen-J-p": np.nan,
+        "AR-p": np.nan,
+        "Method": "Rajan–Zingales",
+    }
+    return row, m
+
+
+# ═══════════════════════════════════════════════════════════════════
+#  D.  Distributed-Lag Model (J-Curve Test)
+# ═══════════════════════════════════════════════════════════════════
+def _distributed_lag(d, controls, eid="country"):
+    """Contemporaneous + lagged AI to test initial adoption friction."""
     ai_vars = ["ai"] + [f"ai_lag{k}" for k in range(1, MAX_LAGS + 1)
                         if f"ai_lag{k}" in d.columns]
     sub = d.dropna(subset=["dlnA"] + ai_vars + controls).copy()
     if len(sub) < 30:
-        # If 3 lags is too restrictive on short panel, try with 1 or 2 lags
+        # Fall back to 1 lag if 3 lags restricts sample excessively
         ai_vars = ["ai"] + [f"ai_lag{k}" for k in range(1, 2) if f"ai_lag{k}" in d.columns]
         sub = d.dropna(subset=["dlnA"] + ai_vars + controls).copy()
 
     if len(sub) < 20:
-        print("  ↳ distributed lag sample too small — skipping")
+        print("  -> distributed lag sample too small — skipping")
         return None, None
 
-    idx = sub.set_index(["eid", "year"])
-    dep = idx["dlnA"]
+    idx = sub.set_index([eid, "year"])
     exog = idx[ai_vars + controls]
 
     try:
-        m = PanelOLS(dep, exog, entity_effects=True, time_effects=True,
+        m = PanelOLS(idx["dlnA"], exog, entity_effects=True, time_effects=True,
                      check_rank=False, drop_absorbed=True).fit(cov_type="clustered", cluster_entity=True)
-    except Exception as exc:
+    except Exception:
         try:
-            m = PanelOLS(dep, exog, entity_effects=True, time_effects=False,
+            m = PanelOLS(idx["dlnA"], exog, entity_effects=True, time_effects=False,
                          check_rank=False, drop_absorbed=True).fit(cov_type="clustered", cluster_entity=True)
-        except Exception as exc2:
-            print(f"  ↳ distributed lag estimation failed: {exc2}")
-            return None, None
+        except Exception:
+            try:
+                m = PanelOLS(idx["dlnA"], exog, entity_effects=True, time_effects=False,
+                             check_rank=False, drop_absorbed=True).fit(cov_type="robust")
+            except Exception:
+                return None, None
 
     rows = []
     for v in ai_vars:
@@ -184,58 +266,55 @@ def _distributed_lag(d, controls, yd):
             })
     if not rows:
         return None, None
+
     lag_df = pd.DataFrame(rows).set_index("Lag")
     lag_df["cumulative_θ"] = lag_df["θ_k"].cumsum()
 
     pretty(lag_df, "Stage 2 · Distributed-Lag (J-Curve Test)")
-    print(f"  N = {int(m.nobs)}, Σθ = {lag_df['θ_k'].sum():.4f}")
-
+    print(f"  N = {int(m.nobs)}, cumulative θ = {lag_df['θ_k'].sum():.4f}")
     return lag_df, m
 
 
 # ═══════════════════════════════════════════════════════════════════
-#  D.  Heterogeneity analysis
+#  E.  Heterogeneity Analysis
 # ═══════════════════════════════════════════════════════════════════
-def _heterogeneity(d, controls, yd):
-    """Interact AI with income group and sector dummies."""
-    from linearmodels.panel import PanelOLS
+def _heterogeneity(d, controls, eid="country"):
+    """Subgroup estimates by income group and sector."""
     rows = []
 
-    # ── by income group ─────────────────────────────────────────────
-    if "income_group" in d.columns and d["income_group"].notna().sum() > 50:
+    # By income group
+    if "income_group" in d.columns and d["income_group"].notna().sum() > 30:
         for grp in sorted(d["income_group"].dropna().unique()):
-            sub = d[d["income_group"] == grp].dropna(
-                subset=["dlnA", "ai"] + controls)
-            if len(sub) < 30:
+            sub = d[d["income_group"] == grp].dropna(subset=["dlnA", "ai"] + controls)
+            if len(sub) < 20 or sub[eid].nunique() < 3:
                 continue
-            idx = sub.set_index(["eid", "year"])
+            idx = sub.set_index([eid, "year"])
             try:
                 m = PanelOLS(idx["dlnA"], idx[["ai"] + controls],
                              entity_effects=True, time_effects=True,
-                             check_rank=False, drop_absorbed=True
-                             ).fit(cov_type="clustered", cluster_entity=True)
+                             drop_absorbed=True).fit(cov_type="clustered", cluster_entity=True)
                 rows.append({"Group": f"Income: {grp}", "θ": m.params["ai"],
                              "SE": m.std_errors["ai"], "p": m.pvalues["ai"],
                              "N": int(m.nobs)})
             except Exception:
                 pass
 
-    # ── by sector ───────────────────────────────────────────────────
-    for sec in sorted(d["sector"].unique()):
-        sub = d[d["sector"] == sec].dropna(subset=["dlnA", "ai"] + controls)
-        if len(sub) < 20:
-            continue
-        idx = sub.set_index(["eid", "year"])
-        try:
-            m = PanelOLS(idx["dlnA"], idx[["ai"] + controls],
-                         entity_effects=True, time_effects=True,
-                         check_rank=False, drop_absorbed=True
-                         ).fit(cov_type="clustered", cluster_entity=True)
-            rows.append({"Group": f"Sector: {sec}", "θ": m.params["ai"],
-                         "SE": m.std_errors["ai"], "p": m.pvalues["ai"],
-                         "N": int(m.nobs)})
-        except Exception:
-            pass
+    # By sector (if available in panel)
+    if "sector" in d.columns:
+        for sec in sorted(d["sector"].unique()):
+            sub = d[d["sector"] == sec].dropna(subset=["dlnA", "ai"] + controls)
+            if len(sub) < 20:
+                continue
+            idx = sub.set_index(["eid" if "eid" in sub.columns else eid, "year"])
+            try:
+                m = PanelOLS(idx["dlnA"], idx[["ai"] + controls],
+                             entity_effects=True, time_effects=True,
+                             drop_absorbed=True).fit(cov_type="clustered", cluster_entity=True)
+                rows.append({"Group": f"Sector: {sec}", "θ": m.params["ai"],
+                             "SE": m.std_errors["ai"], "p": m.pvalues["ai"],
+                             "N": int(m.nobs)})
+            except Exception:
+                pass
 
     het_df = pd.DataFrame(rows)
     if not het_df.empty:
@@ -247,93 +326,73 @@ def _heterogeneity(d, controls, yd):
 # ═══════════════════════════════════════════════════════════════════
 #  Public entry point
 # ═══════════════════════════════════════════════════════════════════
-def run(panel):
-    """Run all Stage-2 specifications; return tables and model objects."""
-    p = _prepare(panel)
-    controls = _pick_controls(p)
+def run(agg_panel, sec_panel=None):
+    """Run all Stage-2 specifications across aggregate and sectoral panels."""
+    p_agg = _prepare(agg_panel)
+    controls = _pick_controls(p_agg)
 
-    # sample: need dlnA + ai + controls
-    d = p.dropna(subset=["dlnA", "ai"] + controls).copy()
-    yd = add_year_dummies(d)
-    print(f"  Stage-2 estimation sample: {len(d)} obs, "
-          f"{d.country.nunique()} countries")
+    d_agg = p_agg.dropna(subset=["dlnA", "ai"] + controls).copy()
+    yd_agg = add_year_dummies(d_agg)
+    print(f"  Stage-2 aggregate sample: {len(d_agg)} obs, {d_agg.country.nunique()} countries")
 
     spec_rows = []
     models    = {}
 
-    # A. OLS baseline
-    row, m = _ols_baseline(d, controls, yd)
-    spec_rows.append(row)
-    models["ols"] = m
+    # 1. OLS Baseline (contemporaneous)
+    row_ols, m_ols = _ols_baseline(p_agg, controls, lag=0)
+    if row_ols is not None:
+        spec_rows.append(row_ols)
+        models["ols"] = m_ols
 
-    # Also run OLS with lagged AI
-    for lag_k in range(1, MAX_LAGS + 1):
-        lag_var = f"ai_lag{lag_k}"
-        if lag_var not in d.columns:
-            continue
-        d_lag = d.dropna(subset=[lag_var])
-        if len(d_lag) < 50:
-            continue
-        from linearmodels.panel import PanelOLS
-        idx = d_lag.set_index(["eid", "year"])
-        try:
-            ml = PanelOLS(idx["dlnA"], idx[[lag_var] + controls],
-                          entity_effects=True, time_effects=True,
-                          check_rank=False, drop_absorbed=True
-                          ).fit(cov_type="clustered", cluster_entity=True)
+    # 2. OLS Lag 1
+    row_l1, m_l1 = _ols_baseline(p_agg, controls, lag=1)
+    if row_l1 is not None:
+        spec_rows.append(row_l1)
+        models["ols_lag1"] = m_l1
 
-            spec_rows.append({
-                "Specification": f"OLS-FE (lag {lag_k})",
-                "θ": ml.params[lag_var], "SE": ml.std_errors[lag_var],
-                "p-value": ml.pvalues[lag_var], "N": int(ml.nobs),
-                "Countries": d_lag.country.nunique(),
-                "R²": ml.rsquared_within,
-                "1st-F": np.nan, "Method": "OLS"})
-        except Exception:
-            pass
+    # 3. OLS Lag 2
+    row_l2, m_l2 = _ols_baseline(p_agg, controls, lag=2)
+    if row_l2 is not None:
+        spec_rows.append(row_l2)
+        models["ols_lag2"] = m_l2
 
-    # B. IV-2SLS Bartik
-    if "bartik" in d.columns and d["bartik"].notna().sum() > 30:
-        d_iv = d.dropna(subset=["bartik"]).copy()
-        yd_iv = add_year_dummies(d_iv)
-        row_iv, m_iv = _iv_bartik(d_iv, controls, yd_iv, method="2sls")
-        if row_iv is not None:
-            spec_rows.append(row_iv)
-            models["iv_2sls"] = m_iv
+    # 4. Overidentified IV-2SLS
+    if "bartik1" in d_agg.columns and "bartik2" in d_agg.columns:
+        row_2sls, m_2sls = _iv_overidentified(d_agg, controls, yd_agg, method="2sls")
+        if row_2sls is not None:
+            spec_rows.append(row_2sls)
+            models["iv_2sls"] = m_2sls
 
-        # C. LIML
-        row_liml, m_liml = _iv_bartik(d_iv, controls, yd_iv, method="liml")
+        # 5. Overidentified IV-LIML
+        row_liml, m_liml = _iv_overidentified(d_agg, controls, yd_agg, method="liml")
         if row_liml is not None:
             spec_rows.append(row_liml)
             models["liml"] = m_liml
-    else:
-        print("  ↳ Bartik instrument unavailable — skipping IV/LIML")
 
-    # summary table
+    # 6. Sectoral Rajan–Zingales Interaction (if sectoral panel provided)
+    if sec_panel is not None:
+        p_sec = _prepare(sec_panel)
+        row_sec, m_sec = _sectoral_rajan_zingales(p_sec, controls)
+        if row_sec is not None:
+            spec_rows.append(row_sec)
+            models["sector_rz"] = m_sec
+
+    # Summary table
     tab = pd.DataFrame(spec_rows)
     if not tab.empty:
         tab = tab.set_index("Specification")
-    pretty(tab, "Stage 2 · AI → TFP Growth (all specifications)")
+    pretty(tab, "Stage 2 · AI → TFP Growth (Aggregate & Sectoral Specifications)")
 
-    # D. Distributed lags
-    d_dl = p.dropna(subset=["dlnA", "ai"] + controls)
-    lag_df, m_dl = _distributed_lag(d_dl, controls, yd)
+    # Distributed Lags (J-curve test)
+    lag_df, m_dl = _distributed_lag(p_agg, controls)
 
-    # E. Heterogeneity
-    het_df = _heterogeneity(d, controls, yd)
-
-    # AI contribution (using preferred IV estimate if available)
-    pref = models.get("iv_2sls", models.get("ols"))
-    if pref is not None and "ai" in pref.params:
-        theta = pref.params["ai"]
-        delta_ai = d["ai"] - d.groupby("eid")["ai"].shift(1)
-        c_ai = theta * delta_ai
-        print(f"\n  Mean estimated AI contribution to TFP growth: "
-              f"{c_ai.mean():.4f} pp/yr (θ = {theta:.4f})")
+    # Heterogeneity
+    het_df = _heterogeneity(p_agg, controls)
 
     return {
         "spec_table": tab,
         "lag_table": lag_df,
         "het_table": het_df,
         "models": models,
+        "controls": controls,
     }

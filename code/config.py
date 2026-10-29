@@ -26,8 +26,9 @@ DELTA   = 0.05   # depreciation rate for perpetual-inventory extension
 G_INIT  = 0.03   # assumed steady-state growth for initial K
 
 # ── Directories ─────────────────────────────────────────────────────
-CACHE = "cache"
-OUT   = "results"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+CACHE = os.path.join(BASE_DIR, "cache")
+OUT   = os.path.join(BASE_DIR, "results")
 
 # ── World Bank indicator codes ──────────────────────────────────────
 SECTORS = {
@@ -48,10 +49,18 @@ CONTROL_CODES = {
     "gov_eff":    "GE.EST",                # gov effectiveness estimate (WGI)
 }
 
-# Controls that actually enter the regressions (broadband may be reserved
-# for the Bartik instrument and excluded from Stage-2 controls to satisfy
-# the exclusion restriction).
-STAGE2_CONTROLS = ["ln_gdp_pc", "tertiary", "rd", "trade", "internet"]
+# Controls that actually enter the regressions (broadband and internet
+# are reserved for the overidentified Bartik instruments Z1 and Z2 and
+# excluded from Stage-2 controls to satisfy the exclusion restriction).
+STAGE2_CONTROLS = ["ln_gdp_pc", "tertiary", "rd", "trade"]
+
+# Sectoral AI exposure indices (Rajan-Zingales style interaction)
+# Based on task exposure literature (Felten et al. AIOE / OECD ICT intensity)
+SECTOR_AI_EXPOSURE = {
+    "Services":    1.00,
+    "Industry":    0.60,
+    "Agriculture": 0.15,
+}
 
 # ── Econometric settings ────────────────────────────────────────────
 MAX_LAGS         = 3            # distributed-lag horizons for J-curve

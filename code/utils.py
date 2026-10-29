@@ -30,7 +30,7 @@ def cached_download(url, cache_name):
     r.raise_for_status()
     with open(path, "wb") as f:
         f.write(r.content)
-    print(f"  ↳ cached {len(r.content) / 1e6:.1f} MB → {path}")
+    print(f"  -> cached {len(r.content) / 1e6:.1f} MB -> {path}")
     return path
 
 

@@ -48,13 +48,14 @@ def load_pwt():
     else:
         df = pd.read_stata(path, convert_categoricals=False)
 
-    keep = ["countrycode", "year", "rnna", "hc", "ctfp", "rgdpna"]
+    keep = ["countrycode", "year", "rnna", "rgdpna", "emp", "labsh", "csh_i", "delta", "hc", "ctfp"]
     df = df[[c for c in keep if c in df.columns]].copy()
-    df = df.rename(columns={"countrycode": "country", "rnna": "K_pwt"})
+    df = df.rename(columns={"countrycode": "country", "rnna": "K_pwt", "emp": "L_pwt", "rgdpna": "Y_pwt"})
     df = df.dropna(subset=["K_pwt"])
     df["year"] = df["year"].astype(int)
 
     print(f"  ↳ PWT panel: {df.country.nunique()} countries, "
           f"{int(df.year.min())}–{int(df.year.max())}")
     return df
+
 

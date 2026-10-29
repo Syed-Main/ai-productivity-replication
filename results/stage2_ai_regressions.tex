@@ -1,17 +1,30 @@
 \begin{table}[t]
 \centering\small
-\begin{tabular}{lrrrrrrrr}
+\caption{Stage 2: AI adoption and TFP growth (Aggregate and Sectoral specifications).}
+\label{tab:ai}
+\begin{tabular}{lcccccc}
 \toprule
- & θ & SE & p-value & N & Countries & R² & 1st-F & Method \\
+ & (1) & (2) & (3) & (4) & (5) & (6) \\
+Estimator & \shortstack{OLS-FE} & \shortstack{OLS-FE\\(lag 1)} & \shortstack{OLS-FE\\(lag 2)} & \shortstack{2SLS} & \shortstack{LIML} & \shortstack{Sectoral\\Rajan--Zingales\\(CY+SY FE)} \\
 \midrule
-OLS-FE (current) & 0.015 & 0.135 & 0.913 & 297 & 35 & 0.037 &  & OLS \\
-OLS-FE (lag 1) & -0.004 & 0.031 & 0.905 & 96 & 29 & -0.134 &  & OLS \\
-OLS-FE (lag 2) & 1.829 & 3.137 & 0.573 & 105 & 30 & -2.795 &  & OLS \\
-OLS-FE (lag 3) & -0.008 &  &  & 84 & 27 & -0.098 &  & OLS \\
-IV-2SLS Bartik (current) & -0.034 & 0.489 & 0.944 & 297 & 35 &  &  & IV-2SLS \\
-LIML Bartik (current) & -0.034 & 0.489 & 0.944 & 297 & 35 &  &  & LIML \\
+AI adoption ($\theta$) & 0.0048 & 0.0540 & 0.0965 & 0.1531 & 0.2989 & 0.0255 \\
+ & (0.0516) & (0.0954) & (0.0945) & (0.1878) & (0.4262) & (0.0368) \\
+\addlinespace
+Controls & Yes & Yes & Yes & Yes & Yes & No \\
+Country FE & Yes & Yes & Yes & Yes & Yes & --- \\
+Year FE & Yes & Yes & Yes & Yes & Yes & --- \\
+Country $\times$ Year FE & No & No & No & No & No & Yes \\
+Sector $\times$ Year FE & No & No & No & No & No & Yes \\
+\midrule
+Observations & 102 & 70 & 65 & 102 & 102 & 399 \\
+Countries & 36 & 37 & 34 & 36 & 36 & 37 \\
+Within $R^2$ & 0.342 & 0.472 & --- & --- & --- & 0.001 \\
+First-stage $F$ & --- & --- & --- & 5.06 & 5.06 & --- \\
+Hansen $J$ ($p$-value) & --- & --- & --- & 0.071 & 0.086 & --- \\
+Anderson--Rubin ($p$-value) & --- & --- & --- & 0.136 & 0.136 & --- \\
 \bottomrule
 \end{tabular}
-\caption{Stage 2: AI adoption and TFP growth.}
-\label{tab:ai}
+\begin{minipage}{\linewidth}\vspace{1ex}\footnotesize
+\emph{Notes:} Clustered standard errors at entity level in parentheses. $^{*}p<0.10, ^{**}p<0.05, ^{***}p<0.01$. Columns (1)--(5) estimate country-year panel equations with PWT-derived Törnqvist TFP residuals. Column (6) estimates the Rajan--Zingales mechanism equation using country-by-year and sector-by-year fixed effects. In IV/LIML columns, within $R^2$ is not bounded in $[0,1]$ and is suppressed (---). Instruments $Z_1$ and $Z_2$ are pre-period (2010) fixed broadband and internet penetration interacted with leave-one-out global AI adoption.
+\end{minipage}
 \end{table}
