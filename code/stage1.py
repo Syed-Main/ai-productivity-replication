@@ -52,8 +52,8 @@ def _ols_fe(p):
     summary = pd.DataFrame({
         "Estimate":   [alpha_u, beta_u, alpha_u + beta_u, alpha_r, 1 - alpha_r],
         "Std. error": [se_au,   se_bu,  np.nan,           se_ar,   se_ar],
-    }, index=["α (unrestricted)", "β (unrestricted)", "α + β",
-              "α (CRS imposed)", "β = 1 − α (CRS imposed)"])
+    }, index=["α (OLS unrestricted)", "β (OLS unrestricted)", "α + β (OLS unrestricted)",
+              "α (OLS CRS imposed)", "β = 1 − α (OLS CRS imposed)"])
 
     pretty(summary, "Stage 1 · OLS Fixed Effects")
     print(f"  CRS Wald test: stat = {crs_test.stat:.3f}, "
@@ -106,7 +106,7 @@ def _iv_fd(p):
     summary = pd.DataFrame({
         "Estimate":   [alpha_iv, beta_iv, alpha_iv + beta_iv],
         "Std. error": [se_a, se_b, np.nan],
-    }, index=["α (IV-FD)", "β (IV-FD)", "α + β"])
+    }, index=["α (IV-FD)", "β (IV-FD)", "α + β (IV-FD)"])
 
     pretty(summary, "Stage 1 · IV in First Differences")
 
@@ -166,7 +166,7 @@ def _system_gmm(p):
         summary = pd.DataFrame({
             "Estimate":   [alpha_gmm, beta_gmm, alpha_gmm + beta_gmm],
             "Std. error": [se_a, se_b, np.nan],
-        }, index=["α (Sys-GMM)", "β (Sys-GMM)", "α + β"])
+        }, index=["α (Sys-GMM)", "β (Sys-GMM)", "α + β (Sys-GMM)"])
 
         pretty(summary, "Stage 1 · System GMM (Blundell–Bond)")
 

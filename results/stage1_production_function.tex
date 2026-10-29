@@ -4,37 +4,19 @@
 \toprule
  & Estimate & Std. error \\
 \midrule
-α (unrestricted) & 0.599 & 0.028 \\
-β (unrestricted) & 0.181 & 0.032 \\
-α + β & α + β    0.779663
-α + β    1.904543
-α + β    0.103604
-Name: Estimate, dtype: float64 & α + β   NaN
-α + β   NaN
-α + β   NaN
-Name: Std. error, dtype: float64 \\
-α (CRS imposed) & 0.669 & 0.027 \\
-β = 1 − α (CRS imposed) & 0.331 & 0.027 \\
+α (OLS unrestricted) & 0.599 & 0.028 \\
+β (OLS unrestricted) & 0.181 & 0.032 \\
+α + β (OLS unrestricted) & 0.780 &  \\
+α (OLS CRS imposed) & 0.669 & 0.027 \\
+β = 1 - α (OLS CRS imposed) & 0.331 & 0.027 \\
 α (IV-FD) & 0.305 & 0.256 \\
 β (IV-FD) & 1.599 & 0.753 \\
-α + β & α + β    0.779663
-α + β    1.904543
-α + β    0.103604
-Name: Estimate, dtype: float64 & α + β   NaN
-α + β   NaN
-α + β   NaN
-Name: Std. error, dtype: float64 \\
+α + β (IV-FD) & 1.905 &  \\
 α (Sys-GMM) & 0.026 & 0.014 \\
 β (Sys-GMM) & 0.078 & 0.022 \\
-α + β & α + β    0.779663
-α + β    1.904543
-α + β    0.103604
-Name: Estimate, dtype: float64 & α + β   NaN
-α + β   NaN
-α + β   NaN
-Name: Std. error, dtype: float64 \\
+α + β (Sys-GMM) & 0.104 &  \\
 \bottomrule
 \end{tabular}
-\caption{Stage 1: production-function estimates.}
+\caption{Stage 1: Production function estimates across OLS, IV in first differences, and System GMM.}
 \label{tab:pf}
 \end{table}

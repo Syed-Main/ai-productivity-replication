@@ -22,10 +22,10 @@ def to_latex(df, path, fmt="{:.3f}", caption="", label=""):
                        for c in df.columns]) + r" \\",
         r"\midrule",
     ]
-    for idx_val in df.index:
+    for idx_val, row in df.iterrows():
         cells = []
         for c in df.columns:
-            v = df.loc[idx_val, c]
+            v = row[c]
             if isinstance(v, (float, np.floating)):
                 if np.isnan(v):
                     cells.append("")
@@ -33,7 +33,7 @@ def to_latex(df, path, fmt="{:.3f}", caption="", label=""):
                     cells.append(fmt.format(v))
             else:
                 cells.append(str(v))
-        idx_str = str(idx_val).replace("_", r"\_")
+        idx_str = str(idx_val).replace("_", r"\_").replace("%", r"\%")
         lines.append(idx_str + " & " + " & ".join(cells) + r" \\")
     lines += [r"\bottomrule", r"\end{tabular}"]
     if caption:
