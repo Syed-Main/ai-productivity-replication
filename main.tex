@@ -49,7 +49,7 @@
 \noindent\textbf{Keywords:} Artificial Intelligence; Total Factor Productivity; Growth Accounting; Törnqvist Index; Overidentified Instrumental Variables; Productivity J-Curve; Penn World Table.\\
 \textbf{JEL Classifications:} O33, O47, C23, C26, E23, D24.
 
-\newpage
+\clearpage
 
 % =====================================================================
 \section{Introduction}
@@ -237,13 +237,13 @@ To test microeconomic task exposure mechanisms while controlling for unobserved 
 \end{equation}
 where $\text{Exposure}_s$ is the baseline cognitive and algorithmic task exposure index of sector $s$ based on the occupational task literature ($\text{Exposure}_{\text{Services}} = 1.00, \text{Exposure}_{\text{Industry}} = 0.60, \text{Exposure}_{\text{Agriculture}} = 0.15$). Crucially, specification~\eqref{eq:rajan_zingales} includes country-by-year fixed effects ($\mu_{ct}$) and sector-by-year fixed effects ($\lambda_{st}$), completely absorbing all country-level macroeconomic, institutional, and policy shocks, as well as global industry-specific technological trends.
 
-\paragraph{Distributed-Lag Model:}
-To evaluate the Productivity J-Curve hypothesis, we estimate distributed-lag horizons spanning 0 to 2 years:
+\paragraph{Horizon-Specific Lag Specifications (J-Curve Trajectory):}
+Because enterprise AI diffusion series begin only in the early 2020s, including multiple lags simultaneously in a single regression severely truncates degrees of freedom. To preserve sample coverage across horizons while evaluating the Productivity J-Curve hypothesis, we estimate separate horizon-specific panel regressions (analogous to local projections) for each lag horizon $k \in \{0, 1, 2\}$:
 \begin{equation}
-    \Delta \ln A_{ct} = \delta + \sum_{k=0}^{K} \theta_k AI_{c, t-k} + \bm{\gamma}' \mathbf{X}_{ct} + \mu_c + \tau_t + \varepsilon_{ct}, \quad K \in \{1, 2\},
+    \Delta \ln A_{ct} = \delta_k + \theta_k AI_{c, t-k} + \bm{\gamma}_k' \mathbf{X}_{ct} + \mu_c + \tau_t + \varepsilon_{ct}^{(k)}, \quad k \in \{0, 1, 2\},
     \label{eq:dist_lag}
 \end{equation}
-tracking contemporaneous adjustment frictions ($\theta_0$) against medium-run gestation returns ($\theta_1, \theta_2$).
+tracking contemporaneous adjustment frictions ($\theta_0$) against medium-run gestation returns ($\theta_1, \theta_2$), with cumulative multi-horizon return indexed by $\Theta_K = \sum_{m=0}^{K} \hat{\theta}_m$.
 
 % =====================================================================
 \section{Data Architecture and Capital Construction}
@@ -252,18 +252,20 @@ tracking contemporaneous adjustment frictions ($\theta_0$) against medium-run ge
 
 The empirical analysis is constructed from four international data repositories harmonized into a balanced panel of 166 countries, three productive sectors (Agriculture, Industry, and Services), and 25 years (2000--2024), totaling 11,606 country-sector-year observations. Table~\ref{tab:data_sources} summarizes the core variables, series codes, and transformation rules.
 
-\begin{table}[t]
+\begin{table}[!htbp]
 \centering
-\small
-\begin{tabularx}{\textwidth}{@{}lllX@{}}
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\begin{tabularx}{\textwidth}{@{}l l l >{\raggedright\arraybackslash}X@{}}
 \toprule
 \textbf{Variable} & \textbf{Concept} & \textbf{Source \& Identifier} & \textbf{Construction \& Definition} \\
 \midrule
 $Y_{cst}$ & Real Sectoral Output & World Bank WDI & Real value added by sector (constant 2015 US\$): \texttt{NV.AGR.TOTL.KD}, \texttt{NV.IND.TOTL.KD}, \texttt{NV.SRV.TOTL.KD}. \\
 $L_{cst}$ & Sectoral Labour & World Bank WDI & Total employment multiplied by sectoral employment share (\%): $\text{Emp}_{ct} \times (\text{Share}_{cst}/100)$, where $\text{Emp} = \text{LabourForce} \times (1 - \text{Unemp}/100)$. \\
-$K_{cst}$ & Capital Stock & PWT 10.01 + WB GFCF & National capital stock at constant 2017 prices (\texttt{rnna}) extended post-2019 via perpetual inventory with WB GFCF (\texttt{NE.GDI.FTOT.KD}); allocated by value-added composition. \\
+$K_{ct}, K_{cst}$ & Capital Stock & PWT 10.01 + WB GFCF & National capital stock at constant 2017 prices (\texttt{rnna}) extended post-2019 by splicing 2019 PWT real investment ($csh\_i \times rgdpna$) with annual real WB GFCF growth (\texttt{NE.GDI.FTOT.KD}); allocated by value-added share in the sectoral mechanism panel. \\
+$labsh_{ct}$ & Labour Cost Share & PWT 10.01 & Share of labour compensation in GDP at current national prices (\texttt{labsh}), used to construct Törnqvist factor weights $\beta_{ct} = labsh_{ct}$ and $\alpha_{ct} = 1 - labsh_{ct}$. \\
 $AI_{ct}$ & AI Adoption Rate & OECD SDMX (\texttt{DSD\_ICT\_B}) & Percentage of enterprises employing artificial intelligence technologies (\texttt{G14\_B}, all activities and enterprise sizes). \\
-$\text{Broadband}_{c, 2010}$ & Pre-Period Infrastructure & World Bank WDI & Fixed broadband subscriptions per 100 people in base year 2010 (\texttt{IT.NET.BBND.P2}), interacting the Bartik instrument. \\
+$\text{Broadband}_{c, 2010}$ & Shift-Share Base ($Z_1, Z_2$) & World Bank WDI & Predetermined 2010 fixed broadband subscriptions per 100 people (\texttt{IT.NET.BBND.P2}) and 2010 internet user penetration (\texttt{IT.NET.USER.ZS}), interacted with leave-one-out global AI diffusion. \\
 $\ln \text{GDPpc}_{ct}$ & Economic Development & World Bank WDI & Natural log of GDP per capita, constant 2015 US\$ (\texttt{NY.GDP.PCAP.KD}). \\
 $\text{Tertiary}_{ct}$ & Human Capital & World Bank WDI & Gross tertiary education enrolment ratio (\% gross, \texttt{SE.TER.ENRR}). \\
 $\text{R\&D}_{ct}$ & Innovation Intensity & World Bank WDI & Research and development expenditure as a percentage of GDP (\texttt{GB.XPD.RSDV.GD.ZS}). \\
@@ -296,7 +298,7 @@ To achieve maximum measurement integrity, our empirical strategy proceeds along 
     \end{equation}
     where $\delta_c$ is country $c$'s empirical depreciation rate from PWT 10.01 (averaging 5.0 percent). Real GDP and employment are extended using analogous World Bank real growth rates.
     
-    \item \textbf{Sectoral Mechanism Panel (Secondary):} For our secondary Rajan--Zingales mechanism analysis, national capital is distributed across sectors according to gross value-added shares ($K_{cst} = K_{ct} \times [Y_{cst}/\sum_j Y_{cjt}]$). Crucially, because specification~\eqref{eq:rajan_zingales} includes country-by-year fixed effects ($\mu_{ct}$), all country-level capital measurement noise and aggregate macro shocks are nonparametrically absorbed.
+    \item \textbf{Sectoral Mechanism Panel (Secondary):} For our secondary Rajan--Zingales mechanism analysis, national capital is distributed across sectors according to gross value-added shares ($K_{cst} = K_{ct} \times [Y_{cst}/\sum_j Y_{cjt}]$). Crucially, under this imputation $\Delta \ln K_{cst} = \Delta \ln Y_{cst} + \Delta \ln(K_{ct}/Y_{ct})$, so the aggregate capital-output ratio component $\bar{\alpha}_{ct}\Delta \ln(K_{ct}/Y_{ct})$ is nonparametrically absorbed by the country-by-year fixed effects ($\mu_{ct}$) in specification~\eqref{eq:rajan_zingales}, leaving within-country-year identification driven cleanly by sectoral labour-productivity differentials weighted by the national labour share ($\bar{\beta}_{ct}\Delta \ln(Y_{cst}/L_{cst})$).
 \end{enumerate}
 
 % =====================================================================
@@ -307,7 +309,7 @@ To achieve maximum measurement integrity, our empirical strategy proceeds along 
 \subsection{Stage 1: Production Function and Factor-Share Estimates}
 Table~\ref{tab:pf} presents the empirical factor shares and structural production function estimates across the Törnqvist benchmark, one-step joint model, OLS-FE, IV in first differences, and System GMM.
 
-\begin{table}[t]
+\begin{table}[!htbp]
 \centering
 \small
 \begin{tabular}{lrr}
@@ -349,30 +351,30 @@ Among the econometric benchmarks, OLS-FE yields an unrestricted capital elastici
 \subsection{Growth Accounting Decomposition}
 Table~\ref{tab:dec} and Figure~\ref{fig:dec} display the mean annual growth accounting decomposition using Törnqvist factor shares over the 2000--2024 period.
 
-\begin{table}[t]
+\begin{table}[!htbp]
 \centering
 \small
 \begin{tabular}{lrrrr}
 \toprule
-\textbf{Sector} & \textbf{Output Growth (\%)} & \textbf{Capital Contribution} & \textbf{Labour Contribution} & \textbf{TFP Growth (\%)} \\
+\textbf{Sector} & \textbf{Output (\%)} & \textbf{Capital (pp)} & \textbf{Labour (pp)} & \textbf{TFP (pp)} \\
 \midrule
-Agriculture & 1.98 & 2.48 & -0.42 & -0.08 \\
-Industry    & 3.07 & 2.83 &  3.14 & -2.90 \\
-Services    & 3.96 & 3.13 &  4.21 & -3.39 \\
+Agriculture & 1.98 & 1.06 & -0.19 & 1.11 \\
+Industry    & 3.07 & 1.58 &  0.97 & 0.52 \\
+Services    & 3.96 & 2.04 &  1.37 & 0.55 \\
 \bottomrule
 \end{tabular}
-\caption{Mean annual sectoral growth decomposition (percentage points, 2000--2024).}
+\caption{Mean annual sectoral growth decomposition using Törnqvist cost shares (percentage points, 2000--2024).}
 \label{tab:dec}
 \end{table}
 
-\begin{figure}[t]
+\begin{figure}[!htbp]
 \centering
 \includegraphics[width=0.72\textwidth]{results/fig_decomposition.pdf}
 \caption{Mean annual contribution of capital, labour, and TFP growth by sector.}
 \label{fig:dec}
 \end{figure}
 
-The decomposition reveals pronounced structural divergence across sectors. Services exhibited the fastest annual real output growth (3.96 percentage points), driven by rapid capital accumulation (3.13 pp contribution) and labour force absorption (4.21 pp contribution). Industry grew at 3.07 pp annually, with balanced factor deepening (2.83 pp capital, 3.14 pp labour). In Agriculture, output grew at 1.98 pp, characterized by labour outflow ($-0.42$ pp contribution) offset by capital deepening (2.48 pp contribution). Residual TFP growth reflects the global productivity slowdown and the heavy weight of developing nations undergoing intensive factor accumulation.
+The Törnqvist cost-share decomposition reveals pronounced structural divergence across sectors alongside positive baseline efficiency gains. Services exhibited the fastest annual real output growth (3.96 percentage points), driven by capital accumulation (2.04 pp contribution), labour force expansion (1.37 pp contribution), and residual TFP growth (0.55 pp). Industry grew at 3.07 pp annually, supported by capital deepening (1.58 pp), labour absorption (0.97 pp), and TFP growth (0.52 pp). In Agriculture, output grew at 1.98 pp, characterized by structural labour outflow ($-0.19$ pp contribution) more than offset by capital deepening (1.06 pp) and productivity gains (1.11 pp). Grounding factor weights in observed PWT cost shares eliminates the scale distortions of unrestricted regression residuals and yields economically plausible TFP trajectories across all three sectors.
 
 \subsection{Stage 2: AI Adoption and TFP Growth}
 Table~\ref{tab:ai} reports the Stage 2 econometric estimations examining the relationship between enterprise AI adoption and residual TFP growth across aggregate country-year specifications and the sectoral Rajan--Zingales mechanism model.
@@ -381,7 +383,7 @@ Table~\ref{tab:ai} reports the Stage 2 econometric estimations examining the rel
 
 In the baseline contemporaneous OLS-FE model (Column 1), the estimated AI coefficient is $\hat{\theta} = +0.0048$ ($SE = 0.0516, p = 0.926, N = 102$), indicating that enterprise AI adoption is not associated with an immediate expansion in annual TFP growth. 
 
-When addressing endogeneity via our overidentified instrumental variable system ($Z_1$ from 2010 broadband penetration and $Z_2$ from 2010 internet penetration), the first-stage partial $F$-statistic is $5.06$. The causal IV-2SLS estimate (Column 4) is $\hat{\theta}_{\text{IV}} = +0.1531$ ($SE = 0.1878, p = 0.415$). The Limited Information Maximum Likelihood estimator (Column 5), which is median-unbiased and robust to weak instrument configurations, yields $\hat{\theta}_{\text{LIML}} = +0.2989$ ($SE = 0.4262, p = 0.483$). 
+When addressing endogeneity via our overidentified instrumental variable system ($Z_1$ from 2010 broadband penetration and $Z_2$ from 2010 internet penetration), cross-country collinearity between the two predetermined 2010 digital infrastructure shares yields a moderate joint first-stage partial $F$-statistic of $5.06$. Because a joint first-stage $F$ below the conventional \citet{staiger1997} threshold of 10 can introduce finite-sample bias in standard 2SLS, pairing 2SLS with median-unbiased LIML and weak-instrument-robust Anderson--Rubin inference is essential. The IV-2SLS estimate (Column 4) is $\hat{\theta}_{\text{IV}} = +0.1531$ ($SE = 0.1878, p = 0.415$), while the median-unbiased LIML estimator (Column 5) yields $\hat{\theta}_{\text{LIML}} = +0.2989$ ($SE = 0.4262, p = 0.483$). 
 
 Importantly, overidentification enables rigorous specification diagnostics:
 \begin{enumerate}
@@ -393,7 +395,7 @@ Importantly, overidentification enables rigorous specification diagnostics:
 \subsection{Testing the Productivity J-Curve: Distributed Lags}
 Table~\ref{tab:jcurve} and Figure~\ref{fig:jcurve} report the distributed-lag estimations evaluating Hypothesis~1 across horizons $k \in \{0, 1, 2\}$.
 
-\begin{table}[t]
+\begin{table}[!htbp]
 \centering
 \small
 \begin{tabular}{crrrcr}
@@ -405,11 +407,11 @@ $k = 1$ (1 Year)  & 0.0541 & 0.0940 & 0.5704 & 0.0589 & 68 \\
 $k = 2$ (2 Years) & 0.0965 & 0.0945 & 0.3179 & 0.1555 & 65 \\
 \bottomrule
 \end{tabular}
-\caption{Distributed-lag coefficients of enterprise AI adoption on TFP growth (J-curve test).}
+\caption{Horizon-specific lag coefficients of enterprise AI adoption on TFP growth (J-curve test; separate regressions per horizon $k \in \{0, 1, 2\}$).}
 \label{tab:jcurve}
 \end{table}
 
-\begin{figure}[t]
+\begin{figure}[!htbp]
 \centering
 \includegraphics[width=0.68\textwidth]{results/fig_lag_coefficients.pdf}
 \caption{Distributed-lag coefficient trajectory ($\hat{\theta}_k$) of AI adoption on TFP growth with 95\% confidence intervals.}
@@ -421,7 +423,7 @@ Consistent with the Productivity J-Curve hypothesis of \citet{brynjolfsson2021},
 \subsection{Heterogeneity Decomposition: Income Groups and Sectors}
 Table~\ref{tab:het} and Figure~\ref{fig:het} present the heterogeneity analysis decomposing the AI--TFP relationship across economic development tiers and productive sectors.
 
-\begin{table}[t]
+\begin{table}[!htbp]
 \centering
 \small
 \begin{tabular}{lrrrr}
@@ -441,7 +443,7 @@ Table~\ref{tab:het} and Figure~\ref{fig:het} present the heterogeneity analysis 
 \label{tab:het}
 \end{table}
 
-\begin{figure}[t]
+\begin{figure}[!htbp]
 \centering
 \includegraphics[width=0.72\textwidth]{results/fig_heterogeneity.pdf}
 \caption{Heterogeneity of estimated AI impact ($\hat{\theta}$) across income groups and sectors (with 95\% confidence intervals).}
@@ -461,10 +463,10 @@ The heterogeneity decomposition yields two vital insights:
 
 To verify the empirical validity of our baseline findings, we conduct four robustness and sensitivity evaluations summarized in Table~\ref{tab:robust}.
 
-\begin{table}[t]
+\begin{table}[!htbp]
 \centering
 \small
-\begin{tabular}{lrl}
+\begin{tabularx}{\textwidth}{@{}lrX@{}}
 \toprule
 \textbf{Diagnostic / Robustness Test} & \textbf{Value} & \textbf{Interpretation / Empirical Check} \\
 \midrule
@@ -476,7 +478,7 @@ Placebo Test $\hat{\theta}_{\text{fake}}$ ($p$-value) & 0.8326 & Falsification c
 Jackknife Mean $\hat{\theta}$ & 0.0058 & Leave-one-out cross-validation across 36 country drop iterations. \\
 Jackknife Standard Error & 0.0615 & Empirical sampling distribution bounds: $[-0.0378, 0.0297]$. \\
 \bottomrule
-\end{tabular}
+\end{tabularx}
 \caption{Comprehensive robustness battery.}
 \label{tab:robust}
 \end{table}
@@ -523,7 +525,7 @@ This study provides a comprehensive, multi-country empirical evaluation of the m
 
 Our central empirical conclusion is that enterprise AI adoption has not yet generated a broad-based, statistically significant acceleration in aggregate total factor productivity ($\hat{\theta}_{\text{OLS}} = +0.005$, IV-2SLS $\hat{\theta}_{\text{IV}} = +0.153$, IV-LIML $\hat{\theta}_{\text{LIML}} = +0.299$, all statistically indistinguishable from zero). Instead, the contemporary economy exhibits the classic hallmarks of a General Purpose Technology in its early adoption phase: initial transitional frictions consistent with the Productivity J-Curve, followed by emerging positive gestation returns at one and two lags ($\hat{\theta}_1 = +0.054, \hat{\theta}_2 = +0.096$). As frontier models mature and complementary organizational capital accumulates, future research should track whether this initial gestation phase gives way to the anticipated aggregate productivity dividend.
 
-\newpage
+\clearpage
 % =====================================================================
 % REFERENCES (40+ Verified Academic Citations)
 % =====================================================================
@@ -574,6 +576,11 @@ Alderucci, D., Branstetter, L., Hovy, E., Runge, K., and Zolas, N. (2020).
 Anderson, T.~W. and Hsiao, C. (1982).
 \newblock Formulation and estimation of dynamic models using panel data.
 \newblock \emph{Journal of Econometrics}, 18(1):47--82.
+
+\bibitem[Anderson and Rubin(1949)]{anderson1949}
+Anderson, T.~W. and Rubin, H. (1949).
+\newblock Estimation of the parameters of a single equation in a complete system of stochastic equations.
+\newblock \emph{Annals of Mathematical Statistics}, 20(1):46--63.
 
 \bibitem[Arellano and Bond(1991)]{arellano1991}
 Arellano, M. and Bond, S. (1991).
@@ -735,6 +742,16 @@ Stiroh, K.~J. (2002).
 \newblock Information technology and the US productivity revival: What do the industry data say?
 \newblock \emph{American Economic Review}, 92(5):1559--1576.
 
+\bibitem[Stock et~al.(2002)]{stock2002}
+Stock, J.~H., Wright, J.~H., and Yogo, M. (2002).
+\newblock A survey of weak instruments and weak identification in generalized method of moments.
+\newblock \emph{Journal of Business \& Economic Statistics}, 20(4):518--529.
+
+\bibitem[Stock and Yogo(2005)]{stock2005}
+Stock, J.~H. and Yogo, M. (2005).
+\newblock Testing for weak instruments in linear IV regression.
+\newblock In Andrews, D. W.~K. and Stock, J.~H., editors, \emph{Identification and Inference for Econometric Models}, pp.~80--108. Cambridge University Press.
+
 \bibitem[Syverson(2011)]{syverson2011}
 Syverson, C. (2011).
 \newblock What determines productivity?
@@ -752,7 +769,7 @@ Wooldridge, J.~M. (2009).
 
 \end{thebibliography}
 
-\newpage
+\clearpage
 % =====================================================================
 % ONLINE APPENDIX
 % =====================================================================
@@ -766,11 +783,11 @@ Wooldridge, J.~M. (2009).
 \renewcommand{\thefigure}{A\arabic{figure}}
 
 \subsection*{A.1 Data Cleaning, Winsorization, and Sample Balance}
-All monetary variables drawn from the World Bank (value added, gross fixed capital formation, GDP per capita) are denominated in constant 2015 US dollars, while Penn World Table capital stocks are in constant 2017 national currency prices aligned through 2019 baseline overlap scaling factors $\kappa_c = K_{c, 2019}^{\text{PWT}} / I_{c, 2019}^{\text{WB}}$. To eliminate distortion from extreme measurement noise and macroeconomic crises in developing nations, estimated Solow TFP growth residuals $\Delta \ln A_{cst}$ are winsorized at the 1st and 99th percentiles ($WINSOR\_PCTILES = (0.01, 0.99)$). Entities with non-positive values for real output, capital, or labour are removed prior to logarithmic transformation.
+All monetary variables drawn from the World Bank (value added, gross fixed capital formation, GDP per capita) are denominated in constant 2015 US dollars, while Penn World Table capital stocks (\texttt{rnna}) and real GDP (\texttt{rgdpna}) are measured at constant 2017 national prices and extended beyond 2019 by splicing 2019 PWT real investment ($I_{c, 2019}^{\text{PWT}} = csh\_i_{c, 2019} \times Y_{c, 2019}^{\text{PWT}}$) with annual real World Bank GFCF growth rates via perpetual inventory with country-specific depreciation rates $\delta_c$. To eliminate distortion from extreme measurement noise and macroeconomic crises, estimated Törnqvist TFP growth residuals ($\Delta \ln A_{ct}$ and $\Delta \ln A_{cst}$) are winsorized at the 1st and 99th percentiles ($WINSOR\_PCTILES = (0.01, 0.99)$). Entities with non-positive values for real output, capital, or labour are removed prior to logarithmic transformation.
 
 \subsection*{A.2 Computational Pipeline and Open-Source Replication Package}
 The entire empirical pipeline is executed in a self-contained, modular Python architecture structured across 11 modules:
-\begin{enumerate}
+\begin{enumerate}\setlength{\itemsep}{1pt}\setlength{\parskip}{0pt}
     \item \texttt{config.py}: Global parameter definitions, API endpoints, time windows, and winsorization thresholds.
     \item \texttt{utils.py}: Cached REST ingestion utilities, console-to-disk logging tee, and panel demeaning functions.
     \item \texttt{api\_worldbank.py}: Automated batch extraction of WDI sectoral value added, employment, and macroeconomic controls.
@@ -781,10 +798,10 @@ The entire empirical pipeline is executed in a self-contained, modular Python ar
     \item \texttt{stage2.py}: Causal regression of TFP growth on enterprise AI adoption (OLS-FE, Bartik IV-2SLS, LIML, and distributed lags).
     \item \texttt{robustness.py}: Comprehensive battery (translog production function, OECD subsample, placebo pre-period test, and leave-one-out jackknife).
     \item \texttt{reporting.py}: Automated generation of publication-quality booktabs LaTeX tables, CSV files, and vector PDF figures.
-    \item \texttt{run_analysis.py}: Master pipeline orchestrator supporting live API updates and offline validation.
+    \item \texttt{run\_analysis.py}: Master pipeline orchestrator supporting live API updates and offline validation.
 \end{enumerate}
 
 \subsection*{A.3 Software Dependencies and Replication Protocol}
-The econometric analysis is implemented in Python~3.12 utilizing \texttt{pandas} (2.2.3), \texttt{numpy} (2.1.3), \texttt{linearmodels} (7.0), \texttt{statsmodels} (0.14.4), \texttt{scipy} (1.14.1), \texttt{pydynpd} (0.4.0), \texttt{requests} (2.32.3), and \texttt{openpyxl} (3.1.5). The complete replication package, including cached data and raw logs, is provided in the accompanying repository. Running \texttt{python run\_analysis.py} from the \texttt{code/} directory reproduces all empirical tables and figures directly.
+The econometric analysis is implemented in Python~3.12 utilizing \texttt{pandas} (2.2.3), \texttt{numpy} (2.1.3), \texttt{linearmodels} (7.0), \texttt{statsmodels} (0.14.4), \texttt{scipy} (1.14.1), \texttt{pydynpd} (0.4.0), \texttt{requests} (2.32.3), and \texttt{openpyxl} (3.1.5). The complete open-source replication package is hosted publicly at \url{https://github.com/elyoon-research/ai-productivity-replication} and is directly embedded within the ancillary materials of this submission package. Running \texttt{python run\_analysis.py} from the \texttt{code/} directory reproduces all empirical tables and figures directly.
 
 \end{document}
