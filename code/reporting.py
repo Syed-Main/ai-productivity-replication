@@ -30,8 +30,12 @@ def to_latex(df, path, fmt="{:.3f}", caption="", label=""):
             if isinstance(v, (float, np.floating)):
                 if np.isnan(v):
                     cells.append(r"---")
+                elif c in ["N", "Countries", "obs"] or str(c).lower() == "n":
+                    cells.append(str(int(round(v))))
                 else:
                     cells.append(fmt.format(v))
+            elif isinstance(v, (int, np.integer)):
+                cells.append(str(v))
             else:
                 cells.append(str(v).replace("%", r"\%").replace("_", r"\_"))
         idx_str = str(idx_val).replace("_", r"\_").replace("%", r"\%")
@@ -122,7 +126,7 @@ def stage2_to_latex(spec_df, path, caption="Stage 2: AI adoption and TFP growth.
     r2_cells = []
     for c in cols:
         r2 = df.loc[c, "R²"]
-        if pd.isna(r2) or r2 < 0:
+        if pd.isna(r2) or r2 < 0 or "2SLS" in c or "LIML" in c or "IV" in c:
             r2_cells.append(r"---")
         else:
             r2_cells.append(f"{r2:.3f}")
@@ -201,16 +205,18 @@ def _fig_decomposition(dec):
 def _fig_lag_coefficients(lag_df):
     if lag_df is None or lag_df.empty:
         return
-    fig, ax = plt.subplots(figsize=(5, 3.5))
-    lags = lag_df.index.values
+    fig, ax = plt.subplots(figsize=(5.5, 3.8))
+    lags = [int(x) if str(x).isdigit() else i for i, x in enumerate(lag_df.index.values)]
     coef = lag_df["θ_k"].values
     se   = lag_df["SE"].values
     ax.errorbar(lags, coef, yerr=1.96 * se, fmt="o-",
-                color="#3182bd", capsize=4, linewidth=1.5, markersize=6)
-    ax.axhline(0, color="grey", linewidth=0.7, linestyle="--")
-    ax.set_xlabel("Lag (years)")
-    ax.set_ylabel(r"$\hat{\theta}_k$ (pp per unit AI)")
+                color="#2b5c8f", ecolor="#6baed6", capsize=4, linewidth=2, markersize=7)
+    ax.axhline(0, color="grey", linewidth=0.8, linestyle="--")
+    ax.set_xlabel("Lag Horizon")
+    ax.set_ylabel(r"$\hat{\theta}_k$ (Percentage Points per Unit AI)")
     ax.set_xticks(lags)
+    tick_labels = [f"k = {k}\n(Current)" if k == 0 else f"k = {k}\n({k} Year{'s' if k > 1 else ''})" for k in lags]
+    ax.set_xticklabels(tick_labels, fontsize=9)
     ax.spines[["top", "right"]].set_visible(False)
     fig.tight_layout()
     fig.savefig(os.path.join(OUT, "fig_lag_coefficients.pdf"))

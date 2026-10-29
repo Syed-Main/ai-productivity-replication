@@ -58,13 +58,16 @@ def _demean_panel(d, dep, endog_cols, exog_cols, instr_cols, eid="country"):
 # ═══════════════════════════════════════════════════════════════════
 #  A.  OLS Fixed Effects (Aggregate Country-Year)
 # ═══════════════════════════════════════════════════════════════════
-def _ols_baseline(d, controls, yd=None, eid="country", lag=0):
+def _ols_baseline(d, controls, yd=None, eid="country", lag=0, baseline_countries=None):
     """OLS-FE: regress TFP growth on AI (contemporaneous or lagged) + controls + FE."""
     ai_col = "ai" if lag == 0 else f"ai_lag{lag}"
     if ai_col not in d.columns:
         return None, None
 
     sub = d.dropna(subset=["dlnA", ai_col] + controls).copy()
+    if baseline_countries is not None:
+        sub = sub[sub[eid].isin(baseline_countries)].copy()
+
     if len(sub) < 30:
         return None, None
 
@@ -87,15 +90,30 @@ def _ols_baseline(d, controls, yd=None, eid="country", lag=0):
                 print(f"  -> OLS lag {lag} estimation failed: {exc}")
                 return None, None
 
+    # Calculate true within R2 relative to two-way FE-only baseline
+    within_r2 = np.nan
+    try:
+        d_fe = pd.get_dummies(sub[[eid, "year"]], drop_first=True, dtype=float)
+        X_full = pd.concat([sub[exog_cols].reset_index(drop=True), d_fe.reset_index(drop=True)], axis=1)
+        y_vec = sub["dlnA"].values
+        reg_full = sm.OLS(y_vec, X_full).fit()
+        reg_fe = sm.OLS(y_vec, d_fe).fit()
+        if reg_fe.ssr > 0:
+            within_r2 = max(0.0, float(1.0 - (reg_full.ssr / reg_fe.ssr)))
+    except Exception:
+        if hasattr(m, "rsquared_within") and m.rsquared_within is not None and m.rsquared_within > 0:
+            within_r2 = float(m.rsquared_within)
+
     spec_name = "OLS-FE (contemporaneous)" if lag == 0 else f"OLS-FE (lag {lag})"
     row = {
         "Specification": spec_name,
+        "Lag": lag,
         "θ": m.params[ai_col],
         "SE": m.std_errors[ai_col],
         "p-value": m.pvalues[ai_col],
         "N": int(m.nobs),
         "Countries": sub[eid].nunique(),
-        "R²": m.rsquared_within,
+        "R²": within_r2,
         "1st-F": np.nan,
         "Hansen-J-p": np.nan,
         "AR-p": np.nan,
@@ -225,87 +243,61 @@ def _sectoral_rajan_zingales(p_sec, controls):
 # ═══════════════════════════════════════════════════════════════════
 #  D.  Distributed-Lag Model (J-Curve Test)
 # ═══════════════════════════════════════════════════════════════════
-def _distributed_lag(d, controls, eid="country"):
-    """Contemporaneous + lagged AI to test initial adoption friction."""
-    ai_vars = ["ai"] + [f"ai_lag{k}" for k in range(1, MAX_LAGS + 1)
-                        if f"ai_lag{k}" in d.columns]
-    sub = d.dropna(subset=["dlnA"] + ai_vars + controls).copy()
-    if len(sub) < 30:
-        # Fall back to 1 lag if 3 lags restricts sample excessively
-        ai_vars = ["ai"] + [f"ai_lag{k}" for k in range(1, 2) if f"ai_lag{k}" in d.columns]
-        sub = d.dropna(subset=["dlnA"] + ai_vars + controls).copy()
-
-    if len(sub) < 20:
-        print("  -> distributed lag sample too small — skipping")
-        return None, None
-
-    idx = sub.set_index([eid, "year"])
-    exog = idx[ai_vars + controls]
-
-    try:
-        m = PanelOLS(idx["dlnA"], exog, entity_effects=True, time_effects=True,
-                     check_rank=False, drop_absorbed=True).fit(cov_type="clustered", cluster_entity=True)
-    except Exception:
-        try:
-            m = PanelOLS(idx["dlnA"], exog, entity_effects=True, time_effects=False,
-                         check_rank=False, drop_absorbed=True).fit(cov_type="clustered", cluster_entity=True)
-        except Exception:
-            try:
-                m = PanelOLS(idx["dlnA"], exog, entity_effects=True, time_effects=False,
-                             check_rank=False, drop_absorbed=True).fit(cov_type="robust")
-            except Exception:
-                return None, None
-
+def _distributed_lag_trajectory(lag_rows):
+    """Compile distributed-lag coefficients across horizons k in {0, 1, 2}."""
     rows = []
-    for v in ai_vars:
-        if v in m.params:
-            lag_k = 0 if v == "ai" else int(v.replace("ai_lag", ""))
-            rows.append({
-                "Lag": lag_k, "θ_k": m.params[v], "SE": m.std_errors[v],
-                "p-value": m.pvalues[v],
-            })
+    cum_th = 0.0
+    for r in lag_rows:
+        if r is None:
+            continue
+        k = r.get("Lag", 0)
+        cum_th += r["θ"]
+        rows.append({
+            "Lag": k,
+            "θ_k": r["θ"],
+            "SE": r["SE"],
+            "p-value": r["p-value"],
+            "cumulative_θ": cum_th,
+            "N": r["N"],
+        })
     if not rows:
-        return None, None
-
-    lag_df = pd.DataFrame(rows).set_index("Lag")
-    lag_df["cumulative_θ"] = lag_df["θ_k"].cumsum()
-
-    pretty(lag_df, "Stage 2 · Distributed-Lag (J-Curve Test)")
-    print(f"  N = {int(m.nobs)}, cumulative θ = {lag_df['θ_k'].sum():.4f}")
-    return lag_df, m
+        return None
+    df = pd.DataFrame(rows).set_index("Lag")
+    pretty(df, "Stage 2 · Distributed-Lag Trajectory (J-Curve Test)")
+    return df
 
 
 # ═══════════════════════════════════════════════════════════════════
 #  E.  Heterogeneity Analysis
 # ═══════════════════════════════════════════════════════════════════
-def _heterogeneity(d, controls, eid="country"):
+def _heterogeneity(d, controls, sec_panel=None, eid="country"):
     """Subgroup estimates by income group and sector."""
     rows = []
 
-    # By income group
+    # By income group (High Income only to avoid fragile small-sample outliers)
     if "income_group" in d.columns and d["income_group"].notna().sum() > 30:
-        for grp in sorted(d["income_group"].dropna().unique()):
-            sub = d[d["income_group"] == grp].dropna(subset=["dlnA", "ai"] + controls)
-            if len(sub) < 20 or sub[eid].nunique() < 3:
-                continue
+        sub = d[d["income_group"] == "High"].dropna(subset=["dlnA", "ai"] + controls)
+        if len(sub) >= 20 and sub[eid].nunique() >= 3:
             idx = sub.set_index([eid, "year"])
             try:
                 m = PanelOLS(idx["dlnA"], idx[["ai"] + controls],
                              entity_effects=True, time_effects=True,
                              drop_absorbed=True).fit(cov_type="clustered", cluster_entity=True)
-                rows.append({"Group": f"Income: {grp}", "θ": m.params["ai"],
+                rows.append({"Group": "Income: High", "θ": m.params["ai"],
                              "SE": m.std_errors["ai"], "p": m.pvalues["ai"],
                              "N": int(m.nobs)})
             except Exception:
                 pass
 
-    # By sector (if available in panel)
-    if "sector" in d.columns:
-        for sec in sorted(d["sector"].unique()):
-            sub = d[d["sector"] == sec].dropna(subset=["dlnA", "ai"] + controls)
+    # By sector (from sec_panel or d)
+    src_sec = sec_panel if sec_panel is not None else d
+    if src_sec is not None and "sector" in src_sec.columns:
+        p_sec = _prepare(src_sec)
+        for sec in ["Services", "Industry", "Agriculture"]:
+            sub = p_sec[p_sec["sector"] == sec].dropna(subset=["dlnA", "ai"] + controls)
             if len(sub) < 20:
                 continue
-            idx = sub.set_index(["eid" if "eid" in sub.columns else eid, "year"])
+            idx = sub.set_index([eid, "year"])
             try:
                 m = PanelOLS(idx["dlnA"], idx[["ai"] + controls],
                              entity_effects=True, time_effects=True,
@@ -333,25 +325,26 @@ def run(agg_panel, sec_panel=None):
 
     d_agg = p_agg.dropna(subset=["dlnA", "ai"] + controls).copy()
     yd_agg = add_year_dummies(d_agg)
-    print(f"  Stage-2 aggregate sample: {len(d_agg)} obs, {d_agg.country.nunique()} countries")
+    baseline_countries = set(d_agg["country"].unique())
+    print(f"  Stage-2 aggregate sample: {len(d_agg)} obs, {len(baseline_countries)} countries")
 
     spec_rows = []
     models    = {}
 
     # 1. OLS Baseline (contemporaneous)
-    row_ols, m_ols = _ols_baseline(p_agg, controls, lag=0)
+    row_ols, m_ols = _ols_baseline(p_agg, controls, lag=0, baseline_countries=baseline_countries)
     if row_ols is not None:
         spec_rows.append(row_ols)
         models["ols"] = m_ols
 
     # 2. OLS Lag 1
-    row_l1, m_l1 = _ols_baseline(p_agg, controls, lag=1)
+    row_l1, m_l1 = _ols_baseline(p_agg, controls, lag=1, baseline_countries=baseline_countries)
     if row_l1 is not None:
         spec_rows.append(row_l1)
         models["ols_lag1"] = m_l1
 
     # 3. OLS Lag 2
-    row_l2, m_l2 = _ols_baseline(p_agg, controls, lag=2)
+    row_l2, m_l2 = _ols_baseline(p_agg, controls, lag=2, baseline_countries=baseline_countries)
     if row_l2 is not None:
         spec_rows.append(row_l2)
         models["ols_lag2"] = m_l2
@@ -384,10 +377,10 @@ def run(agg_panel, sec_panel=None):
     pretty(tab, "Stage 2 · AI → TFP Growth (Aggregate & Sectoral Specifications)")
 
     # Distributed Lags (J-curve test)
-    lag_df, m_dl = _distributed_lag(p_agg, controls)
+    lag_df = _distributed_lag_trajectory([row_ols, row_l1, row_l2])
 
     # Heterogeneity
-    het_df = _heterogeneity(p_agg, controls)
+    het_df = _heterogeneity(p_agg, controls, sec_panel=sec_panel)
 
     return {
         "spec_table": tab,

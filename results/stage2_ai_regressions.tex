@@ -7,8 +7,8 @@
  & (1) & (2) & (3) & (4) & (5) & (6) \\
 Estimator & \shortstack{OLS-FE} & \shortstack{OLS-FE\\(lag 1)} & \shortstack{OLS-FE\\(lag 2)} & \shortstack{2SLS} & \shortstack{LIML} & \shortstack{Sectoral\\Rajan--Zingales\\(CY+SY FE)} \\
 \midrule
-AI adoption ($\theta$) & 0.0048 & 0.0540 & 0.0965 & 0.1531 & 0.2989 & 0.0255 \\
- & (0.0516) & (0.0954) & (0.0945) & (0.1878) & (0.4262) & (0.0368) \\
+AI adoption ($\theta$) & 0.0048 & 0.0541 & 0.0965 & 0.1531 & 0.2989 & 0.0255 \\
+ & (0.0516) & (0.0940) & (0.0945) & (0.1878) & (0.4262) & (0.0368) \\
 \addlinespace
 Controls & Yes & Yes & Yes & Yes & Yes & No \\
 Country FE & Yes & Yes & Yes & Yes & Yes & --- \\
@@ -16,9 +16,9 @@ Year FE & Yes & Yes & Yes & Yes & Yes & --- \\
 Country $\times$ Year FE & No & No & No & No & No & Yes \\
 Sector $\times$ Year FE & No & No & No & No & No & Yes \\
 \midrule
-Observations & 102 & 70 & 65 & 102 & 102 & 399 \\
-Countries & 36 & 37 & 34 & 36 & 36 & 37 \\
-Within $R^2$ & 0.342 & 0.472 & --- & --- & --- & 0.001 \\
+Observations & 102 & 68 & 65 & 102 & 102 & 399 \\
+Countries & 36 & 35 & 34 & 36 & 36 & 37 \\
+Within $R^2$ & 0.419 & 0.628 & 0.285 & --- & --- & 0.001 \\
 First-stage $F$ & --- & --- & --- & 5.06 & 5.06 & --- \\
 Hansen $J$ ($p$-value) & --- & --- & --- & 0.071 & 0.086 & --- \\
 Anderson--Rubin ($p$-value) & --- & --- & --- & 0.136 & 0.136 & --- \\
