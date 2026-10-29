@@ -77,12 +77,16 @@ This repository contains the complete empirical codebase, econometric estimation
 
 ### 1. Environment Setup
 
-Clone this repository (or download from the double-blind anonymous peer-review repository at `https://anonymous.4open.science/r/ai-productivity-replication`) and create an isolated Python virtual environment:
+Clone this repository and create an isolated Python virtual environment:
 
 ```bash
-git clone https://anonymous.4open.science/r/ai-productivity-replication.git
+git clone https://github.com/Syed-Main/ai-productivity-replication.git
 cd ai-productivity-replication
+```
 
+*(Note for journal reviewers: An anonymous mirror for double-blind peer review is accessible at `https://anonymous.4open.science/r/ai-productivity-replication`)*
+
+```bash
 python -m venv venv
 # On Windows:
 venv\Scripts\activate
@@ -138,7 +142,7 @@ If you use this codebase or replication package in your research, please cite:
   author={First Author and Second Author},
   journal={arXiv preprint},
   year={2026},
-  url={https://github.com/elyoon-research/ai-productivity-replication}
+  url={https://github.com/Syed-Main/ai-productivity-replication}
 }
 ```
 
